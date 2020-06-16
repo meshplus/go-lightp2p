@@ -40,4 +40,6 @@ type Network interface {
 
 	// Broadcast message to all node
 	Broadcast([]*peer.AddrInfo, *network_pb.Message) error
+
+	PeerID() string
 }

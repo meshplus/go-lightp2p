@@ -171,3 +171,7 @@ func AddrToPeerInfo(multiAddr string) (*peer.AddrInfo, error) {
 func (p2p *P2P) Disconnect(addr *peer.AddrInfo) error {
 	return p2p.host.Network().ClosePeer(addr.ID)
 }
+
+func (p2p *P2P) PeerID() string {
+	return p2p.host.ID().String()
+}
