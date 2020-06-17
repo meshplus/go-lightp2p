@@ -180,3 +180,8 @@ func (p2p *P2P) PeerID() string {
 func (p2p *P2P) PrivKey() crypto.PrivKey {
 	return p2p.config.privKey
 }
+
+func (p2p *P2P) PeerStore() peerstore.Peerstore {
+	return p2p.host.Peerstore()
+}
+
