@@ -13,6 +13,7 @@ import (
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
+	crypto "github.com/libp2p/go-libp2p-crypto"
 )
 
 var _ Network = (*P2P)(nil)
@@ -174,4 +175,8 @@ func (p2p *P2P) Disconnect(addr *peer.AddrInfo) error {
 
 func (p2p *P2P) PeerID() string {
 	return p2p.host.ID().String()
+}
+
+func (p2p *P2P) PrivKey() crypto.PrivKey {
+	return p2p.config.privKey
 }
