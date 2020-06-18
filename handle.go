@@ -33,7 +33,7 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 		}
 
 		if p2p.handleMessage != nil {
-			p2p.handleMessage(s, msg.Data)
+			p2p.handleMessage(s, msg)
 		}
 	}
 }

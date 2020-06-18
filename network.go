@@ -10,7 +10,7 @@ import (
 
 type ConnectCallback func(*peer.AddrInfo) error
 
-type MessageHandler func(network.Stream, []byte)
+type MessageHandler func(network.Stream, *network_pb.Message)
 
 type Network interface {
 	// Start start the network service.
@@ -52,4 +52,6 @@ type Network interface {
 	Peers() []peer.AddrInfo
 
 	LocalAddr() string
+
+	GetStream(pid peer.ID) (network.Stream, error)
 }

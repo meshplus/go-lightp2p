@@ -200,3 +200,7 @@ func (p2p *P2P) Peers() []peer.AddrInfo {
 func (p2p *P2P) LocalAddr() string {
 	return p2p.config.localAddr
 }
+
+func (p2p *P2P) GetStream(pid peer.ID) (network.Stream, error){
+	return p2p.streamMng.get(pid)
+}
