@@ -48,4 +48,6 @@ type Network interface {
 	PrivKey() crypto.PrivKey
 
 	PeerStore() peerstore.Peerstore
+
+	Peers() []peer.AddrInfo
 }

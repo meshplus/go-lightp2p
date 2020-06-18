@@ -10,10 +10,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	crypto "github.com/libp2p/go-libp2p-crypto"
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
-	crypto "github.com/libp2p/go-libp2p-crypto"
 )
 
 var _ Network = (*P2P)(nil)
@@ -185,3 +185,14 @@ func (p2p *P2P) PeerStore() peerstore.Peerstore {
 	return p2p.host.Peerstore()
 }
 
+func (p2p *P2P) Peers() []peer.AddrInfo {
+	var peers []peer.AddrInfo
+
+	peersID:=p2p.PeerStore().Peers()
+	for _,peerID:=range peersID{
+		addrs:=p2p.PeerStore().Addrs(peerID)
+		peers=append(peers,peer.AddrInfo{ID: peerID,Addrs: addrs})
+	}
+
+	return peers
+}
