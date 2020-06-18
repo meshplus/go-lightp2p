@@ -196,3 +196,7 @@ func (p2p *P2P) Peers() []peer.AddrInfo {
 
 	return peers
 }
+
+func (p2p *P2P) LocalAddr() string {
+	return p2p.config.localAddr
+}

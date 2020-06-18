@@ -50,4 +50,6 @@ type Network interface {
 	PeerStore() peerstore.Peerstore
 
 	Peers() []peer.AddrInfo
+
+	LocalAddr() string
 }
