@@ -6,6 +6,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	network_pb "github.com/meshplus/go-lightp2p/pb"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type ConnectCallback func(*peer.AddrInfo) error
@@ -14,7 +15,7 @@ type MessageHandler func(network.Stream, *network_pb.Message)
 
 type Network interface {
 	// Start start the network service.
-	Start() error
+	Start(bootstrapAddrs map[string]ma.Multiaddr) error
 
 	// Stop stop the network service.
 	Stop() error
@@ -54,4 +55,5 @@ type Network interface {
 	LocalAddr() string
 
 	GetStream(pid peer.ID) (network.Stream, error)
+//todo: storepeer
 }

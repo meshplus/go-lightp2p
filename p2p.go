@@ -3,6 +3,8 @@ package network
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -65,8 +67,81 @@ func New(opts ...Option) (*P2P, error) {
 }
 
 // Start start the network service.
-func (p2p *P2P) Start() error {
+func (p2p *P2P) Start(bootstrapAddrs map[string]ma.Multiaddr) error {
 	p2p.host.SetStreamHandler(p2p.config.protocolID, p2p.handleNewStream)
+		//construct Bootstrap node's peer info
+		var peers []peer.AddrInfo
+		for _, maAddr := range bootstrapAddrs {
+			pi, err := AddrToPeerInfo(maAddr.String())
+			if err != nil {
+				return err
+			}
+			peers = append(peers, *pi)
+		}
+		//if Bootstrap addr has config then connect it
+		if len(peers) > 0 {
+			err := p2p.BootstrapConnect(p2p.ctx, p2p.host, peers)
+			if err != nil {
+				fmt.Printf("bootstap connect error %v", err)
+			}
+		}
+
+		fmt.Println("p2p started")
+
+	return nil
+}
+
+//// BootstrapConnect refer to ipfs bootstrap
+//// connect to bootstrap peers concurrently
+func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer.AddrInfo) error {
+	if len(peers) < 1 {
+		return errors.New("not enough bootstrap peers")
+	}
+
+	errs := make(chan error, len(peers))
+	var wg sync.WaitGroup
+	for _, p := range peers {
+
+		// performed asynchronously because when performed synchronously, if
+		// one `Connect` call hangs, subsequent calls are more likely to
+		// fail/abort due to an expiring context.
+		// Also, performed asynchronously for dial speed.
+
+		wg.Add(1)
+		go func(p peer.AddrInfo) {
+			defer wg.Done()
+			fmt.Printf("%s bootstrapping to %s", ph.ID().Pretty(), p.ID.Pretty())
+
+			ph.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.PermanentAddrTTL)
+			if err := ph.Connect(ctx, p); err != nil {
+				fmt.Printf("failed to bootstrap with %v: %s", p.ID, err)
+				//if p2p.onConnectFail != nil {
+				//	p2p.onConnectFail(p)
+				//}
+				errs <- err
+				return
+			}
+			fmt.Printf("bootstrapDialSuccess with %s", p.ID.Pretty())
+			if p2p.connectCallback != nil {
+				p2p.connectCallback(&p)
+			}
+		}(p)
+	}
+	wg.Wait()
+
+	// our failure condition is when no connection attempt succeeded.
+	// So drain the errs channel, counting the results.
+	close(errs)
+	count := 0
+	var err error
+	for err = range errs {
+		if err != nil {
+			count++
+		}
+	}
+	if count == len(peers) {
+		return fmt.Errorf("failed to bootstrap. %s", err)
+	}
 
 	return nil
 }
