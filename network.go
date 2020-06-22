@@ -11,7 +11,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-type ConnectCallback func(*peer.AddrInfo) error
+type ConnectCallback func(string) error
 
 type MessageHandler func(network.Stream, *network_pb.Message)
 
@@ -41,7 +41,7 @@ type Network interface {
 	AsyncSendWithStream(network.Stream, *network_pb.Message) error
 
 	// Send sends message waiting response
-	Send(*peer.AddrInfo, *network_pb.Message) (*network_pb.Message, error)
+	Send(string, *network_pb.Message) (*network_pb.Message, error)
 
 	// Send message using existed stream
 	SendWithStream(network.Stream, *network_pb.Message) (*network_pb.Message, error)

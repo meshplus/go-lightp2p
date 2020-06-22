@@ -124,7 +124,7 @@ func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer
 			}
 			fmt.Printf("bootstrapDialSuccess with %s", p.ID.Pretty())
 			if p2p.connectCallback != nil {
-				p2p.connectCallback(&p)
+				p2p.connectCallback(p.ID.String())
 			}
 		}(p)
 	}
@@ -159,7 +159,7 @@ func (p2p *P2P) Connect(addr *peer.AddrInfo) error {
 	p2p.host.Peerstore().AddAddrs(addr.ID, addr.Addrs, peerstore.PermanentAddrTTL)
 
 	if p2p.connectCallback != nil {
-		if err := p2p.connectCallback(addr); err != nil {
+		if err := p2p.connectCallback(addr.ID.String()); err != nil {
 			return err
 		}
 	}
@@ -216,20 +216,21 @@ func (p2p *P2P) ReadFromStream(s network.Stream, timeout time.Duration) (*networ
 	return recvMsg, nil
 }
 
-func (p2p *P2P) Send(addr *peer.AddrInfo, msg *network_pb.Message) (*network_pb.Message, error) {
-	s, err := p2p.streamMng.get(addr.ID)
+func (p2p *P2P) Send(peerID string, msg *network_pb.Message) (*network_pb.Message, error) {
+	pid, err := peer.IDFromString(peerID)
+	s, err := p2p.streamMng.get(pid)
 	if err != nil {
 		return nil, fmt.Errorf("get stream: %w", err)
 	}
 
 	if err := p2p.send(s, msg); err != nil {
-		p2p.streamMng.remove(addr.ID)
+		p2p.streamMng.remove(pid)
 		return nil, err
 	}
 
 	recvMsg := waitMsg(s, waitTimeout)
 	if recvMsg == nil {
-		return nil, fmt.Errorf("sync send msg to node[%s] timeout", addr.ID)
+		return nil, fmt.Errorf("sync send msg to node[%s] timeout", pid)
 	}
 
 	return recvMsg, nil
