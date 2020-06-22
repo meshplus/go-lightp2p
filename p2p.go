@@ -3,9 +3,10 @@ package network
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -69,24 +70,24 @@ func New(opts ...Option) (*P2P, error) {
 // Start start the network service.
 func (p2p *P2P) Start(bootstrapAddrs map[string]ma.Multiaddr) error {
 	p2p.host.SetStreamHandler(p2p.config.protocolID, p2p.handleNewStream)
-		//construct Bootstrap node's peer info
-		var peers []peer.AddrInfo
-		for _, maAddr := range bootstrapAddrs {
-			pi, err := AddrToPeerInfo(maAddr.String())
-			if err != nil {
-				return err
-			}
-			peers = append(peers, *pi)
+	//construct Bootstrap node's peer info
+	var peers []peer.AddrInfo
+	for _, maAddr := range bootstrapAddrs {
+		pi, err := AddrToPeerInfo(maAddr.String())
+		if err != nil {
+			return err
 		}
-		//if Bootstrap addr has config then connect it
-		if len(peers) > 0 {
-			err := p2p.BootstrapConnect(p2p.ctx, p2p.host, peers)
-			if err != nil {
-				fmt.Printf("bootstap connect error %v", err)
-			}
+		peers = append(peers, *pi)
+	}
+	//if Bootstrap addr has config then connect it
+	if len(peers) > 0 {
+		err := p2p.BootstrapConnect(p2p.ctx, p2p.host, peers)
+		if err != nil {
+			fmt.Printf("bootstap connect error %v", err)
 		}
+	}
 
-		fmt.Println("p2p started")
+	fmt.Println("p2p started")
 
 	return nil
 }
@@ -189,8 +190,21 @@ func (p2p *P2P) AsyncSend(addr *peer.AddrInfo, msg *network_pb.Message) error {
 	return nil
 }
 
-func (p2p *P2P) SendWithStream(s network.Stream, msg *network_pb.Message) error {
+func (p2p *P2P) AsyncSendWithStream(s network.Stream, msg *network_pb.Message) error {
 	return p2p.send(s, msg)
+}
+
+func (p2p *P2P) SendWithStream(s network.Stream, msg *network_pb.Message) (*network_pb.Message, error) {
+	if err := p2p.send(s, msg); err != nil {
+		return nil, err
+	}
+
+	recvMsg := waitMsg(s, waitTimeout)
+	if recvMsg == nil {
+		return nil, errors.New("send msg to stream timeout")
+	}
+
+	return recvMsg, nil
 }
 
 func (p2p *P2P) Send(addr *peer.AddrInfo, msg *network_pb.Message) (*network_pb.Message, error) {
@@ -263,10 +277,10 @@ func (p2p *P2P) PeerStore() peerstore.Peerstore {
 func (p2p *P2P) Peers() []peer.AddrInfo {
 	var peers []peer.AddrInfo
 
-	peersID:=p2p.PeerStore().Peers()
-	for _,peerID:=range peersID{
-		addrs:=p2p.PeerStore().Addrs(peerID)
-		peers=append(peers,peer.AddrInfo{ID: peerID,Addrs: addrs})
+	peersID := p2p.PeerStore().Peers()
+	for _, peerID := range peersID {
+		addrs := p2p.PeerStore().Addrs(peerID)
+		peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
 	}
 
 	return peers
@@ -276,6 +290,6 @@ func (p2p *P2P) LocalAddr() string {
 	return p2p.config.localAddr
 }
 
-func (p2p *P2P) GetStream(pid peer.ID) (network.Stream, error){
+func (p2p *P2P) GetStream(pid peer.ID) (network.Stream, error) {
 	return p2p.streamMng.get(pid)
 }
