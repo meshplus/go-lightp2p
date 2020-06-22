@@ -207,8 +207,8 @@ func (p2p *P2P) SendWithStream(s network.Stream, msg *network_pb.Message) (*netw
 	return recvMsg, nil
 }
 
-func (p2p *P2P) ReadFromStream(s network.Stream) (*network_pb.Message, error){
-	recvMsg := waitMsg(s, waitTimeout)
+func (p2p *P2P) ReadFromStream(s network.Stream, timeout time.Duration) (*network_pb.Message, error){
+	recvMsg := waitMsg(s, timeout)
 	if recvMsg == nil {
 		return nil, errors.New("read msg from stream timeout")
 	}

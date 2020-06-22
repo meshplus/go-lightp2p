@@ -1,6 +1,8 @@
 package network
 
 import (
+	"time"
+
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
@@ -45,7 +47,7 @@ type Network interface {
 	SendWithStream(network.Stream, *network_pb.Message) (*network_pb.Message, error)
 
 	// read message from stream
-	ReadFromStream(network.Stream) (*network_pb.Message, error)
+	ReadFromStream(network.Stream, time.Duration) (*network_pb.Message, error)
 
 	// Broadcast message to all node
 	Broadcast([]*peer.AddrInfo, *network_pb.Message) error
