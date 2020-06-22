@@ -44,6 +44,9 @@ type Network interface {
 	// Send message using existed stream
 	SendWithStream(network.Stream, *network_pb.Message) (*network_pb.Message, error)
 
+	// read message from stream
+	ReadFromStream(network.Stream) (*network_pb.Message, error)
+
 	// Broadcast message to all node
 	Broadcast([]*peer.AddrInfo, *network_pb.Message) error
 

@@ -207,6 +207,15 @@ func (p2p *P2P) SendWithStream(s network.Stream, msg *network_pb.Message) (*netw
 	return recvMsg, nil
 }
 
+func (p2p *P2P) ReadFromStream(s network.Stream) (*network_pb.Message, error){
+	recvMsg := waitMsg(s, waitTimeout)
+	if recvMsg == nil {
+		return nil, errors.New("read msg from stream timeout")
+	}
+
+	return recvMsg, nil
+}
+
 func (p2p *P2P) Send(addr *peer.AddrInfo, msg *network_pb.Message) (*network_pb.Message, error) {
 	s, err := p2p.streamMng.get(addr.ID)
 	if err != nil {
