@@ -35,7 +35,7 @@ type Network interface {
 	SetMessageHandler(MessageHandler)
 
 	// AsyncSend sends message to peer with peer info.
-	AsyncSend(*peer.AddrInfo, *network_pb.Message) error
+	AsyncSend(string, *network_pb.Message) error
 
 	// Send message using existed stream
 	AsyncSendWithStream(network.Stream, *network_pb.Message) error
