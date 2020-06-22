@@ -207,7 +207,7 @@ func (p2p *P2P) SendWithStream(s network.Stream, msg *network_pb.Message) (*netw
 	return recvMsg, nil
 }
 
-func (p2p *P2P) ReadFromStream(s network.Stream, timeout time.Duration) (*network_pb.Message, error){
+func (p2p *P2P) ReadFromStream(s network.Stream, timeout time.Duration) (*network_pb.Message, error) {
 	recvMsg := waitMsg(s, timeout)
 	if recvMsg == nil {
 		return nil, errors.New("read msg from stream timeout")
@@ -268,8 +268,13 @@ func AddrToPeerInfo(multiAddr string) (*peer.AddrInfo, error) {
 	return peer.AddrInfoFromP2pAddr(maddr)
 }
 
-func (p2p *P2P) Disconnect(addr *peer.AddrInfo) error {
-	return p2p.host.Network().ClosePeer(addr.ID)
+func (p2p *P2P) Disconnect(peerID string) error {
+	pid, err := peer.Decode(peerID)
+	if err != nil {
+		return errors.Wrap(err, "failed on decode peerID")
+	}
+
+	return p2p.host.Network().ClosePeer(pid)
 }
 
 func (p2p *P2P) PeerID() string {

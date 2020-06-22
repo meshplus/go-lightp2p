@@ -26,7 +26,7 @@ type Network interface {
 	Connect(*peer.AddrInfo) error
 
 	// Disconnect peer with id
-	Disconnect(*peer.AddrInfo) error
+	Disconnect(string) error
 
 	// SetConnectionCallback sets the callback after connecting
 	SetConnectCallback(ConnectCallback)
