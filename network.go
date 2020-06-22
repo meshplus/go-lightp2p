@@ -50,7 +50,7 @@ type Network interface {
 	ReadFromStream(network.Stream, time.Duration) (*network_pb.Message, error)
 
 	// Broadcast message to all node
-	Broadcast([]*peer.AddrInfo, *network_pb.Message) error
+	Broadcast([]string, *network_pb.Message) error
 
 	PeerID() string
 

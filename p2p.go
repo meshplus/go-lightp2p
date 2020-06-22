@@ -178,7 +178,7 @@ func (p2p *P2P) SetMessageHandler(handler MessageHandler) {
 // AsyncSend message to peer with specific id.
 func (p2p *P2P) AsyncSend(peerID string, msg *network_pb.Message) error {
 	pid, err := peer.IDFromString(peerID)
-	if err!=nil{
+	if err != nil {
 		return errors.Wrap(err, "failed on get get peer id from string")
 	}
 
@@ -223,7 +223,7 @@ func (p2p *P2P) ReadFromStream(s network.Stream, timeout time.Duration) (*networ
 
 func (p2p *P2P) Send(peerID string, msg *network_pb.Message) (*network_pb.Message, error) {
 	pid, err := peer.IDFromString(peerID)
-	if err!=nil{
+	if err != nil {
 		return nil, errors.Wrap(err, "failed on get get peer id from string")
 	}
 
@@ -245,7 +245,7 @@ func (p2p *P2P) Send(peerID string, msg *network_pb.Message) (*network_pb.Messag
 	return recvMsg, nil
 }
 
-func (p2p *P2P) Broadcast(ids []*peer.AddrInfo, msg *network_pb.Message) error {
+func (p2p *P2P) Broadcast(ids []string, msg *network_pb.Message) error {
 	for _, id := range ids {
 		if err := p2p.AsyncSend(id, msg); err != nil {
 			p2p.logger.WithFields(logrus.Fields{
