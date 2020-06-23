@@ -320,7 +320,7 @@ func (p2p *P2P) StorePeer(peerID string, addr ma.Multiaddr) error {
 		return errors.Wrap(err, "failed on get get peer id from string")
 	}
 
-	p2p.PeerStore().AddAddr(pid, addr, peerstore.AddressTTL)
+	p2p.host.Peerstore().AddAddr(pid, addr, peerstore.AddressTTL)
 	return nil
 }
 
@@ -330,10 +330,10 @@ func (p2p *P2P) PeerInfo(peerID string) (*peer.AddrInfo, error) {
 		return nil, errors.Wrap(err, "failed on get get peer id from string")
 	}
 
-	addrInfo := p2p.PeerStore().PeerInfo(pid)
+	addrInfo := p2p.host.Peerstore().PeerInfo(pid)
 	return &addrInfo, nil
 }
 
 func (p2p *P2P) PeerNum() int {
-	return len(p2p.PeerStore().Peers())
+	return len(p2p.host.Peerstore().Peers())
 }

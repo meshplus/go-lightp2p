@@ -6,7 +6,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/peerstore"
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -68,4 +67,5 @@ type Network interface {
 
 	PeerNum() int
 
+	StorePeer(peerID string, addr ma.Multiaddr) error
 }
