@@ -294,16 +294,12 @@ func (p2p *P2P) PrivKey() crypto.PrivKey {
 	return p2p.config.privKey
 }
 
-func (p2p *P2P) PeerStore() peerstore.Peerstore {
-	return p2p.host.Peerstore()
-}
-
 func (p2p *P2P) Peers() []peer.AddrInfo {
 	var peers []peer.AddrInfo
 
-	peersID := p2p.PeerStore().Peers()
+	peersID := p2p.host.Peerstore().Peers()
 	for _, peerID := range peersID {
-		addrs := p2p.PeerStore().Addrs(peerID)
+		addrs := p2p.host.Peerstore().Addrs(peerID)
 		peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
 	}
 
@@ -316,4 +312,28 @@ func (p2p *P2P) LocalAddr() string {
 
 func (p2p *P2P) GetStream(pid peer.ID) (network.Stream, error) {
 	return p2p.streamMng.get(pid)
+}
+
+func (p2p *P2P) StorePeer(peerID string, addr ma.Multiaddr) error {
+	pid, err := peer.Decode(peerID)
+	if err != nil {
+		return errors.Wrap(err, "failed on get get peer id from string")
+	}
+
+	p2p.PeerStore().AddAddr(pid, addr, peerstore.AddressTTL)
+	return nil
+}
+
+func (p2p *P2P) PeerInfo(peerID string) (*peer.AddrInfo, error) {
+	pid, err := peer.Decode(peerID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed on get get peer id from string")
+	}
+
+	addrInfo := p2p.PeerStore().PeerInfo(pid)
+	return &addrInfo, nil
+}
+
+func (p2p *P2P) PeerNum() int {
+	return len(p2p.PeerStore().Peers())
 }

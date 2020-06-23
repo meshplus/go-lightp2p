@@ -3,10 +3,10 @@ package network
 import (
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-	crypto "github.com/libp2p/go-libp2p-crypto"
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -52,16 +52,20 @@ type Network interface {
 	// Broadcast message to all node
 	Broadcast([]string, *network_pb.Message) error
 
+	// get local peer id
 	PeerID() string
 
+	// get peer private key
 	PrivKey() crypto.PrivKey
 
-	PeerStore() peerstore.Peerstore
+	PeerInfo(peerID string) (*peer.AddrInfo, error)
 
 	Peers() []peer.AddrInfo
 
 	LocalAddr() string
 
 	GetStream(pid peer.ID) (network.Stream, error)
-//todo: storepeer
+
+	PeerNum() int
+
 }
