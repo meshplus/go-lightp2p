@@ -57,15 +57,21 @@ type Network interface {
 	// get peer private key
 	PrivKey() crypto.PrivKey
 
+	// get peer addr info by peer id
 	PeerInfo(peerID string) (*peer.AddrInfo, error)
 
+	// get all network peers
 	Peers() []peer.AddrInfo
 
+	// get local peer addr
 	LocalAddr() string
 
+	// get peer new stream
 	GetStream(pid peer.ID) (network.Stream, error)
 
+	// get peers num in peer store
 	PeerNum() int
 
+	// store peer to peer store
 	StorePeer(peerID string, addr ma.Multiaddr) error
 }
