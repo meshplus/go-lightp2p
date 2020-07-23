@@ -6,19 +6,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/routing"
 	crypto "github.com/libp2p/go-libp2p-crypto"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
+const module = "lightp2p"
 var _ Network = (*P2P)(nil)
 
 var (
@@ -34,6 +37,7 @@ type P2P struct {
 	connectCallback ConnectCallback
 	handleMessage   MessageHandler
 	logger          logrus.FieldLogger
+	Routing         routing.Routing
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -52,7 +56,13 @@ func New(opts ...Option) (*P2P, error) {
 		libp2p.ListenAddrStrings(config.localAddr))
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("create libp2p: %w", err)
+		return nil, errors.Wrap(err, "failed on create p2p host")
+	}
+
+	routing, err := ddht.New(ctx, h, dht.BootstrapPeers())
+	if err != nil {
+		cancel()
+		return nil, errors.Wrap(err, "failed on create dht")
 	}
 
 	p2p := &P2P{
@@ -60,6 +70,7 @@ func New(opts ...Option) (*P2P, error) {
 		host:      h,
 		streamMng: newStreamMng(ctx, h, config.protocolID),
 		logger:    config.logger,
+		Routing:   routing,
 		ctx:       ctx,
 		cancel:    cancel,
 	}
@@ -87,7 +98,11 @@ func (p2p *P2P) Start(bootstrapAddrs map[string]ma.Multiaddr) error {
 		}
 	}
 
-	fmt.Println("p2p started")
+	if err:=p2p.Routing.Bootstrap(p2p.ctx);err!=nil{
+		return errors.Wrap(err,"failed on bootstrap kad dht")
+	}
+
+	p2p.logger.WithFields(logrus.Fields{"module":module}).Info("start p2p success")
 
 	return nil
 }
