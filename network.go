@@ -75,5 +75,5 @@ type Network interface {
 	// store peer to peer store
 	StorePeer(peerID string, addr ma.Multiaddr) error
 
-	FindPeer(peerID string) (string, error)
+	FindPeer(privkey crypto.PrivKey) (string, error)
 }

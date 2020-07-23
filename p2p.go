@@ -353,8 +353,8 @@ func (p2p *P2P) PeerNum() int {
 	return len(p2p.host.Peerstore().Peers())
 }
 
-func (p2p *P2P) FindPeer(peerID string) (string, error) {
-	id,err:=peer.IDFromString(peerID)
+func (p2p *P2P) FindPeer(privkey crypto.PrivKey) (string, error) {
+	id,err:=peer.IDFromPrivateKey(privkey)
 	if err != nil {
 		return "", errors.Wrap(err, "failed on trans id from string")
 	}
