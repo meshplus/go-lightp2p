@@ -22,6 +22,7 @@ import (
 )
 
 const module = "lightp2p"
+
 var _ Network = (*P2P)(nil)
 
 var (
@@ -98,12 +99,11 @@ func (p2p *P2P) Start(bootstrapAddrs map[string]ma.Multiaddr) error {
 		}
 	}
 
-	if err:=p2p.Routing.Bootstrap(p2p.ctx);err!=nil{
-		return errors.Wrap(err,"failed on bootstrap kad dht")
+	if err := p2p.Routing.Bootstrap(p2p.ctx); err != nil {
+		return errors.Wrap(err, "failed on bootstrap kad dht")
 	}
 
-	p2p.logger.WithFields(logrus.Fields{"module":module}).Info("start p2p success")
-
+	p2p.logger.WithFields(logrus.Fields{"module": module}).Info("start p2p success")
 	return nil
 }
 
@@ -351,4 +351,18 @@ func (p2p *P2P) PeerInfo(peerID string) (*peer.AddrInfo, error) {
 
 func (p2p *P2P) PeerNum() int {
 	return len(p2p.host.Peerstore().Peers())
+}
+
+func (p2p *P2P) FindPeer(peerID string) (string, error) {
+	id,err:=peer.IDFromString(peerID)
+	if err != nil {
+		return "", errors.Wrap(err, "failed on trans id from string")
+	}
+
+	peer, err := p2p.Routing.FindPeer(p2p.ctx, id)
+	if err != nil {
+		return "", errors.Wrap(err, "failed on find peer")
+	}
+
+	return peer.String(), nil
 }
