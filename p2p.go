@@ -60,7 +60,21 @@ func New(opts ...Option) (*P2P, error) {
 		return nil, errors.Wrap(err, "failed on create p2p host")
 	}
 
-	routing, err := ddht.New(ctx, h, dht.BootstrapPeers())
+	addrInfos := make([]peer.AddrInfo, 0, len(config.bootstrap))
+	for i, pAddr := range config.bootstrap {
+		addr, err := ma.NewMultiaddr(pAddr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed on create new multi addr %d", i)
+		}
+
+		addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed on get addr info from multi addr %d", i)
+		}
+		addrInfos = append(addrInfos, *addrInfo)
+	}
+
+	routing, err := ddht.New(ctx, h, dht.BootstrapPeers(addrInfos...))
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create dht")
@@ -354,7 +368,7 @@ func (p2p *P2P) PeerNum() int {
 }
 
 func (p2p *P2P) FindPeer(privkey crypto.PrivKey) (string, error) {
-	id,err:=peer.IDFromPrivateKey(privkey)
+	id, err := peer.IDFromPrivateKey(privkey)
 	if err != nil {
 		return "", errors.Wrap(err, "failed on trans id from string")
 	}

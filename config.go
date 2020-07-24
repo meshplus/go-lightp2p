@@ -14,6 +14,7 @@ type Config struct {
 	privKey    crypto.PrivKey
 	protocolID protocol.ID
 	logger     logrus.FieldLogger
+	bootstrap  []string
 }
 
 type Option func(*Config)
@@ -33,6 +34,12 @@ func WithLocalAddr(addr string) Option {
 func WithProtocolID(id protocol.ID) Option {
 	return func(config *Config) {
 		config.protocolID = id
+	}
+}
+
+func WithBootstrap(peers []string) Option {
+	return func(config *Config) {
+		config.bootstrap = peers
 	}
 }
 
