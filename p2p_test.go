@@ -62,7 +62,7 @@ func TestP2P_Send(t *testing.T) {
 	err = p2.Connect(addr1)
 	assert.Nil(t, err)
 
-	err = p1.AsyncSend(addr2, &network_pb.Message{Data: msg})
+	err = p1.AsyncSend(addr2.ID.String(), msg)
 	assert.Nil(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

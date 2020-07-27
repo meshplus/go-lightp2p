@@ -94,24 +94,24 @@ func New(opts ...Option) (*P2P, error) {
 }
 
 // Start start the network service.
-func (p2p *P2P) Start(bootstrapAddrs map[string]ma.Multiaddr) error {
+func (p2p *P2P) Start() error {
 	p2p.host.SetStreamHandler(p2p.config.protocolID, p2p.handleNewStream)
 	//construct Bootstrap node's peer info
-	var peers []peer.AddrInfo
-	for _, maAddr := range bootstrapAddrs {
-		pi, err := AddrToPeerInfo(maAddr.String())
-		if err != nil {
-			return err
-		}
-		peers = append(peers, *pi)
-	}
+	//var peers []peer.AddrInfo
+	//for _, maAddr := range bootstrapAddrs {
+	//	pi, err := AddrToPeerInfo(maAddr.String())
+	//	if err != nil {
+	//		return err
+	//	}
+	//	peers = append(peers, *pi)
+	//}
 	//if Bootstrap addr has config then connect it
-	if len(peers) > 0 {
-		err := p2p.BootstrapConnect(p2p.ctx, p2p.host, peers)
-		if err != nil {
-			fmt.Printf("bootstap connect error %v", err)
-		}
-	}
+	//if len(peers) > 0 {
+	//	err := p2p.BootstrapConnect(p2p.ctx, p2p.host, peers)
+	//	if err != nil {
+	//		fmt.Printf("bootstap connect error %v", err)
+	//	}
+	//}
 
 	if err := p2p.Routing.Bootstrap(p2p.ctx); err != nil {
 		return errors.Wrap(err, "failed on bootstrap kad dht")
@@ -205,7 +205,7 @@ func (p2p *P2P) SetMessageHandler(handler MessageHandler) {
 }
 
 // AsyncSend message to peer with specific id.
-func (p2p *P2P) AsyncSend(peerID string, msg *network_pb.Message) error {
+func (p2p *P2P) AsyncSend(peerID string, msg []byte) error {
 	pid, err := peer.Decode(peerID)
 	if err != nil {
 		return errors.Wrap(err, "failed on get get peer id from string")

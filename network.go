@@ -12,11 +12,11 @@ import (
 
 type ConnectCallback func(string) error
 
-type MessageHandler func(network.Stream, *network_pb.Message)
+type MessageHandler func(network.Stream, []byte)
 
 type Network interface {
 	// Start start the network service.
-	Start(bootstrapAddrs map[string]ma.Multiaddr) error
+	Start() error
 
 	// Stop stop the network service.
 	Stop() error
@@ -34,7 +34,7 @@ type Network interface {
 	SetMessageHandler(MessageHandler)
 
 	// AsyncSend sends message to peer with peer info.
-	AsyncSend(string, *network_pb.Message) error
+	AsyncSend(string, []byte) error
 
 	// Send message using existed stream
 	AsyncSendWithStream(network.Stream, *network_pb.Message) error

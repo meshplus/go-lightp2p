@@ -65,7 +65,7 @@ func waitMsg(stream io.Reader, timeout time.Duration) *network_pb.Message {
 	}
 }
 
-func (p2p *P2P) send(s network.Stream, msg *network_pb.Message) error {
+func (p2p *P2P) send(s network.Stream, msg []byte) error {
 	deadline := time.Now().Add(sendTimeout)
 
 	if err := s.SetWriteDeadline(deadline); err != nil {

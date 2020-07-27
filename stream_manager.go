@@ -38,12 +38,12 @@ func (mng *streamMgr) get(pid peer.ID) (network.Stream, error) {
 	mng.Lock()
 	defer mng.Unlock()
 	fmt.Println(mng.streams)
-	//s := mng.streams[pid]
-	//if s != nil {
-	//	fmt.Println("s is not nil", pid, s)
-	//	return s, nil
-	//}
-	//fmt.Println("s is nil", pid, s)
+	s := mng.streams[pid]
+	if s != nil {
+		fmt.Println("s is not nil", pid, s)
+		return s, nil
+	}
+	fmt.Println("s is nil", pid, s)
 	ctx, cancel := context.WithTimeout(mng.ctx, newStreamTimeout)
 	defer cancel()
 
