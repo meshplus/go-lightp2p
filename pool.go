@@ -2,25 +2,27 @@ package network
 
 import (
 	"errors"
-	"log"
 	"sync"
 
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/sirupsen/logrus"
 )
 
 type Pool struct {
+	logger    logrus.FieldLogger
 	lock      sync.Mutex
 	resources chan network.Stream
 	factory   func(string) (network.Stream, error)
 	closed    bool
 }
 
-func newPool(fn func(string) (network.Stream, error), size int) (*Pool, error) {
+func newPool(fn func(string) (network.Stream, error), logger logrus.FieldLogger, size int) (*Pool, error) {
 	if size <= 0 {
 		return nil, errors.New("pool size too small")
 	}
 
 	return &Pool{
+		logger:    logger,
 		resources: make(chan network.Stream, size),
 		factory:   fn,
 	}, nil
@@ -29,13 +31,13 @@ func newPool(fn func(string) (network.Stream, error), size int) (*Pool, error) {
 func (p *Pool) Acquire(peerID string) (network.Stream, error) {
 	select {
 	case r, ok := <-p.resources:
-		log.Println("Acquire:", "Shared Resource")
+		p.logger.Info("Acquire:", "Shared Resource")
 		if !ok {
 			return nil, errors.New("pool already closed")
 		}
 		return r, nil
 	default:
-		log.Println("Acquire:", "New Resource")
+		p.logger.Info("Acquire:", "New Resource")
 		return p.factory(peerID)
 	}
 }
@@ -51,9 +53,9 @@ func (p *Pool) Release(r network.Stream) {
 
 	select {
 	case p.resources <- r:
-		log.Println("Release:", "In Queue")
+		p.logger.Info("Release:", "In Queue")
 	default:
-		log.Println("Release:", "Closing")
+		p.logger.Info("Release:", "Closing")
 		r.Close()
 	}
 }

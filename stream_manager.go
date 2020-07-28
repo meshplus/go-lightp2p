@@ -44,7 +44,7 @@ func (mng *streamMgr) get(peerID string) (network.Stream, error) {
 
 	_, ok := mng.pools[peerID]
 	if !ok {
-		pool, err := newPool(mng.newStream, maxStreamNumPerConn)
+		pool, err := newPool(mng.newStream, mng.logger, maxStreamNumPerConn)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed on create new pool")
 		}
@@ -85,7 +85,7 @@ func (mng *streamMgr) newStream(peerID string) (network.Stream, error) {
 	pid, err := peer.Decode(peerID)
 	ctx, cancel := context.WithTimeout(mng.ctx, newStreamTimeout)
 	defer cancel()
-
+	mng.logger.WithFields(logrus.Fields{"protocol id":mng.protocolID}).Info("new stream")
 	s, err := mng.host.NewStream(ctx, pid, mng.protocolID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on creat new stream")
