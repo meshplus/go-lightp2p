@@ -8,6 +8,8 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/meshplus/bitxhub-kit/network/pb"
+
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
 
@@ -19,7 +21,6 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 	}
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
-
 	for {
 		msg := &network_pb.Message{}
 		if err := reader.ReadMsg(msg); err != nil {
@@ -33,7 +34,7 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 		}
 
 		if p2p.handleMessage != nil {
-			p2p.handleMessage(s, msg)
+			p2p.handleMessage(s, msg.Data)
 		}
 	}
 }
@@ -73,7 +74,8 @@ func (p2p *P2P) send(s network.Stream, msg []byte) error {
 	}
 
 	writer := ggio.NewDelimitedWriter(s)
-	if err := writer.WriteMsg(msg); err != nil {
+
+	if err := writer.WriteMsg(&pb.Message{Data: msg}); err != nil {
 		return fmt.Errorf("write msg: %w", err)
 	}
 
