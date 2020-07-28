@@ -11,12 +11,12 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	protocolID protocol.ID = "/test/1.0.0" // magic protocol
+	protocolID1 string = "/test/1.0.0" // magic protocol
+	protocolID2 string = "/test/2.0.0" // magic protocol
 )
 
 func TestP2P_Connect(t *testing.T) {
@@ -137,7 +137,7 @@ func TestP2P_MultiStreamSendWithStream(t *testing.T) {
 
 	send := func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		s, err := p1.GetStream(p2.PeerID())
+		s, err := p1.GetStream(p2.PeerID(), true)
 		assert.Nil(t, err)
 		defer p1.ReleaseStream(s)
 		resp, err := p1.SendWithStream(s, msg)
@@ -176,7 +176,7 @@ func TestP2P_MultiStreamSendWithAsyncStream(t *testing.T) {
 
 	send := func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		s, err := p1.GetStream(p2.PeerID())
+		s, err := p1.GetStream(p2.PeerID(), true)
 		assert.Nil(t, err)
 		defer p1.ReleaseStream(s)
 		err = p1.AsyncSendWithStream(s, msg)
@@ -289,7 +289,7 @@ func generateNetwork(t *testing.T, port int) (Network, string) {
 	p2p, err := New(
 		WithLocalAddr(addr),
 		WithPrivateKey(privKey),
-		WithProtocolID(protocolID),
+		WithProtocolIDs([]string{protocolID1, protocolID2}),
 	)
 	assert.Nil(t, err)
 

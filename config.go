@@ -10,11 +10,11 @@ import (
 )
 
 type Config struct {
-	localAddr  string
-	privKey    crypto.PrivKey
-	protocolID protocol.ID
-	logger     logrus.FieldLogger
-	bootstrap  []string
+	localAddr   string
+	privKey     crypto.PrivKey
+	protocolIDs []protocol.ID
+	logger      logrus.FieldLogger
+	bootstrap   []string
 }
 
 type Option func(*Config)
@@ -31,9 +31,12 @@ func WithLocalAddr(addr string) Option {
 	}
 }
 
-func WithProtocolID(id protocol.ID) Option {
+func WithProtocolIDs(ids []string) Option {
 	return func(config *Config) {
-		config.protocolID = id
+		config.protocolIDs = []protocol.ID{}
+		for _, id := range ids {
+			config.protocolIDs = append(config.protocolIDs, protocol.ID(id))
+		}
 	}
 }
 

@@ -25,9 +25,11 @@ const module = "lightp2p"
 var _ Network = (*P2P)(nil)
 
 var (
-	connectTimeout = 10 * time.Second
-	sendTimeout    = 5 * time.Second
-	waitTimeout    = 5 * time.Second
+	connectTimeout           = 10 * time.Second
+	sendTimeout              = 5 * time.Second
+	waitTimeout              = 5 * time.Second
+	reusableProtocolIndex    = 0
+	nonReusableProtocolIndex = 1
 )
 
 type P2P struct {
@@ -35,7 +37,7 @@ type P2P struct {
 	host            host.Host // manage all connections
 	streamMng       *streamMgr
 	connectCallback ConnectCallback
-	handleMessage   MessageHandler
+	messageHandler  MessageHandler
 	logger          logrus.FieldLogger
 	Routing         routing.Routing
 
@@ -83,7 +85,7 @@ func New(opts ...Option) (*P2P, error) {
 	p2p := &P2P{
 		config:    conf,
 		host:      h,
-		streamMng: newStreamMng(ctx, h, conf.protocolID, conf.logger),
+		streamMng: newStreamMng(ctx, h, conf.protocolIDs[reusableProtocolIndex], conf.logger),
 		logger:    conf.logger,
 		Routing:   routing,
 		ctx:       ctx,
@@ -95,7 +97,10 @@ func New(opts ...Option) (*P2P, error) {
 
 // Start start the network service.
 func (p2p *P2P) Start() error {
-	p2p.host.SetStreamHandler(p2p.config.protocolID, p2p.handleNewStream)
+	p2p.host.SetStreamHandler(p2p.config.protocolIDs[reusableProtocolIndex], p2p.handleNewStreamReusable)
+	if len(p2p.config.protocolIDs) > 1 {
+		p2p.host.SetStreamHandler(p2p.config.protocolIDs[nonReusableProtocolIndex], p2p.handleNewStream)
+	}
 	//construct Bootstrap node's peer info
 	var peers []peer.AddrInfo
 	for _, maAddr := range p2p.config.bootstrap {
@@ -208,7 +213,7 @@ func (p2p *P2P) SetConnectCallback(callback ConnectCallback) {
 }
 
 func (p2p *P2P) SetMessageHandler(handler MessageHandler) {
-	p2p.handleMessage = handler
+	p2p.messageHandler = handler
 }
 
 // AsyncSend message to peer with specific id.
@@ -332,8 +337,17 @@ func (p2p *P2P) LocalAddr() string {
 	return p2p.config.localAddr
 }
 
-func (p2p *P2P) GetStream(peerID string) (network.Stream, error) {
-	return p2p.streamMng.get(peerID)
+func (p2p *P2P) GetStream(peerID string, reusable bool) (network.Stream, error) {
+	if reusable {
+		return p2p.streamMng.get(peerID)
+	}
+
+	pid, err := peer.Decode(peerID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed on decode peer id")
+	}
+
+	return p2p.host.NewStream(p2p.ctx, pid, p2p.config.protocolIDs[nonReusableProtocolIndex])
 }
 
 func (p2p *P2P) ReleaseStream(stream network.Stream) {

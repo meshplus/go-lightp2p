@@ -40,8 +40,8 @@ type Network interface {
 	// Broadcast message to all node
 	Broadcast([]string, []byte) error
 
-	// get peer new stream
-	GetStream(string) (network.Stream, error)
+	// get peer new stream true:reusable stream false:non reusable stream
+	GetStream(string, bool) (network.Stream, error)
 
 	// Send message using existed stream
 	AsyncSendWithStream(network.Stream, []byte) error

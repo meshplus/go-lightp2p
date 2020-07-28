@@ -13,8 +13,25 @@ import (
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
 
+func (p2p *P2P) handleMessage(s network.Stream, reader ggio.ReadCloser) {
+	msg := &network_pb.Message{}
+	if err := reader.ReadMsg(msg); err != nil {
+		if err != io.EOF {
+			if err := s.Reset(); err != nil {
+				p2p.logger.WithField("error", err).Error("Reset stream")
+			}
+		}
+
+		return
+	}
+
+	if p2p.messageHandler != nil {
+		p2p.messageHandler(s, msg.Data)
+	}
+}
+
 // handle newly connected stream
-func (p2p *P2P) handleNewStream(s network.Stream) {
+func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 	if err := s.SetReadDeadline(time.Time{}); err != nil {
 		p2p.logger.WithField("error", err).Error("Set stream read deadline")
 		return
@@ -22,21 +39,18 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	for {
-		msg := &network_pb.Message{}
-		if err := reader.ReadMsg(msg); err != nil {
-			if err != io.EOF {
-				if err := s.Reset(); err != nil {
-					p2p.logger.WithField("error", err).Error("Reset stream")
-				}
-			}
-
-			return
-		}
-
-		if p2p.handleMessage != nil {
-			p2p.handleMessage(s, msg.Data)
-		}
+		p2p.handleMessage(s, reader)
 	}
+}
+
+func (p2p *P2P) handleNewStream(s network.Stream) {
+	if err := s.SetReadDeadline(time.Time{}); err != nil {
+		p2p.logger.WithField("error", err).Error("Set stream read deadline")
+		return
+	}
+
+	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
+	p2p.handleMessage(s, reader)
 }
 
 // waitMsg wait the incoming messages within time duration.
