@@ -369,14 +369,19 @@ func (p2p *P2P) StorePeer(peerID string, addr string) error {
 	return nil
 }
 
-func (p2p *P2P) PeerInfo(peerID string) (string, error) {
+func (p2p *P2P) PeerInfo(peerID string) ([]string, error) {
 	pid, err := peer.Decode(peerID)
 	if err != nil {
-		return "", errors.Wrap(err, "failed on get get peer id from string")
+		return nil, errors.Wrap(err, "failed on get get peer id from string")
 	}
 
 	addrInfo := p2p.host.Peerstore().PeerInfo(pid)
-	return addrInfo.String(), nil
+	var addrs []string
+	for _,addr := range addrInfo.Addrs{
+		addrs=append(addrs,addr.String())
+	}
+
+	return addrs, nil
 }
 
 func (p2p *P2P) PeerNum() int {

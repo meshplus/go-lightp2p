@@ -62,7 +62,7 @@ type Network interface {
 	PrivKey() crypto.PrivKey
 
 	// get peer addr info by peer id
-	PeerInfo(peerID string) (string, error)
+	PeerInfo(peerID string) ([]string, error)
 
 	// get all network peers
 	Peers() []peer.AddrInfo
