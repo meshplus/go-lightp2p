@@ -39,7 +39,7 @@ func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	for {
-		p2p.logger.Info("handleNewStreamReusable loop ...")
+		//p2p.logger.Info("handleNewStreamReusable loop ...")
 		p2p.handleMessage(s, reader)
 	}
 }
