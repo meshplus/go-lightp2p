@@ -1,14 +1,33 @@
 package network
 
 import (
+	"time"
+
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
 
-type ConnectCallback func(*peer.AddrInfo) error
+type ConnectCallback func(string) error
 
 type MessageHandler func(network.Stream, []byte)
+
+type StreamHandler interface {
+	// get peer new stream true:reusable stream false:non reusable stream
+	GetStream(string, bool) (network.Stream, error)
+
+	// Send message using existed stream
+	AsyncSendWithStream(network.Stream, []byte) error
+
+	// Send message using existed stream
+	SendWithStream(network.Stream, []byte) ([]byte, error)
+
+	// read message from stream
+	ReadFromStream(network.Stream, time.Duration) ([]byte, error)
+
+	// release stream
+	ReleaseStream(network.Stream)
+}
 
 type Network interface {
 	// Start start the network service.
@@ -17,11 +36,11 @@ type Network interface {
 	// Stop stop the network service.
 	Stop() error
 
-	// Connect connects peer by ID.
-	Connect(*peer.AddrInfo) error
+	// Connect connects peer by addr.
+	Connect(peer.AddrInfo) error
 
 	// Disconnect peer with id
-	Disconnect(*peer.AddrInfo) error
+	Disconnect(string) error
 
 	// SetConnectionCallback sets the callback after connecting
 	SetConnectCallback(ConnectCallback)
@@ -29,15 +48,38 @@ type Network interface {
 	// SetMessageHandler sets message handler
 	SetMessageHandler(MessageHandler)
 
-	// AsyncSend sends message to peer with peer info.
-	AsyncSend(*peer.AddrInfo, *network_pb.Message) error
+	// AsyncSend sends message to peer with peer id.
+	AsyncSend(string, []byte) error
 
-	// Send message using existed stream
-	SendWithStream(network.Stream, *network_pb.Message) error
-
-	// Send sends message waiting response
-	Send(*peer.AddrInfo, *network_pb.Message) (*network_pb.Message, error)
+	// Send sends message to peer with peer id waiting response
+	Send(string, []byte) ([]byte, error)
 
 	// Broadcast message to all node
-	Broadcast([]*peer.AddrInfo, *network_pb.Message) error
+	Broadcast([]string, []byte) error
+}
+
+type PeerHandler interface {
+	// get local peer id
+	PeerID() string
+
+	// get peer private key
+	PrivKey() crypto.PrivKey
+
+	// get peer addr info by peer id
+	PeerInfo(string) (peer.AddrInfo, error)
+
+	// get all network peers
+	GetPeers() []peer.AddrInfo
+
+	// get local peer addr
+	LocalAddr() string
+
+	// get peers num in peer store
+	PeersNum() int
+
+	// store peer to peer store
+	StorePeer(peer.AddrInfo) error
+
+	// searches for a peer with peer id
+	FindPeer(string) (peer.AddrInfo, error)
 }

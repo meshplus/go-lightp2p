@@ -8,10 +8,42 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/meshplus/bitxhub-kit/network/pb"
+
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
 
+func (p2p *P2P) handleMessage(s network.Stream, reader ggio.ReadCloser) {
+	msg := &network_pb.Message{}
+	if err := reader.ReadMsg(msg); err != nil {
+		if err != io.EOF {
+			if err := s.Reset(); err != nil {
+				p2p.logger.WithField("error", err).Error("Reset stream")
+			}
+		}
+
+		return
+	}
+
+	if p2p.messageHandler != nil {
+		p2p.messageHandler(s, msg.Data)
+	}
+}
+
 // handle newly connected stream
+func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
+	if err := s.SetReadDeadline(time.Time{}); err != nil {
+		p2p.logger.WithField("error", err).Error("Set stream read deadline")
+		return
+	}
+
+	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
+	for {
+		//p2p.logger.Info("handleNewStreamReusable loop ...")
+		p2p.handleMessage(s, reader)
+	}
+}
+
 func (p2p *P2P) handleNewStream(s network.Stream) {
 	if err := s.SetReadDeadline(time.Time{}); err != nil {
 		p2p.logger.WithField("error", err).Error("Set stream read deadline")
@@ -19,23 +51,9 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 	}
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
+	p2p.logger.Info("handleNewStream non reusable ...")
 
-	for {
-		msg := &network_pb.Message{}
-		if err := reader.ReadMsg(msg); err != nil {
-			if err != io.EOF {
-				if err := s.Reset(); err != nil {
-					p2p.logger.WithField("error", err).Error("Reset stream")
-				}
-			}
-
-			return
-		}
-
-		if p2p.handleMessage != nil {
-			p2p.handleMessage(s, msg.Data)
-		}
-	}
+	p2p.handleMessage(s, reader)
 }
 
 // waitMsg wait the incoming messages within time duration.
@@ -65,7 +83,7 @@ func waitMsg(stream io.Reader, timeout time.Duration) *network_pb.Message {
 	}
 }
 
-func (p2p *P2P) send(s network.Stream, msg *network_pb.Message) error {
+func (p2p *P2P) send(s network.Stream, msg []byte) error {
 	deadline := time.Now().Add(sendTimeout)
 
 	if err := s.SetWriteDeadline(deadline); err != nil {
@@ -73,7 +91,8 @@ func (p2p *P2P) send(s network.Stream, msg *network_pb.Message) error {
 	}
 
 	writer := ggio.NewDelimitedWriter(s)
-	if err := writer.WriteMsg(msg); err != nil {
+
+	if err := writer.WriteMsg(&pb.Message{Data: msg}); err != nil {
 		return fmt.Errorf("write msg: %w", err)
 	}
 
