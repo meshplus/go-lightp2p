@@ -30,6 +30,12 @@ type StreamHandler interface {
 }
 
 type Network interface {
+	StreamHandler
+
+	PeerHandler
+
+	DHTHandler
+
 	// Start start the network service.
 	Start() error
 
@@ -79,7 +85,20 @@ type PeerHandler interface {
 
 	// store peer to peer store
 	StorePeer(peer.AddrInfo) error
+}
 
+type DHTHandler interface {
 	// searches for a peer with peer id
 	FindPeer(string) (peer.AddrInfo, error)
+
+	// Search for peers who are able to provide a given key
+	//
+	// When count is 0, this method will return an unbounded number of
+	// results.
+	FindProvidersAsync(string, int) (<-chan peer.AddrInfo, error)
+
+	// Provide adds the given cid to the content routing system. If 'true' is
+	// passed, it also announces it, otherwise it is just kept in the local
+	// accounting of which objects are being provided.
+	Provider(string, bool) error
 }
