@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-cid"
 	"sync"
 	"time"
 
@@ -365,8 +366,28 @@ func (p2p *P2P) PeersNum() int {
 func (p2p *P2P) FindPeer(peerID string) (peer.AddrInfo, error) {
 	id, err := peer.Decode(peerID)
 	if err != nil {
-		return peer.AddrInfo{}, errors.Wrap(err, "failed on decode peer id")
+		return peer.AddrInfo{}, fmt.Errorf("failed on decode peer id:%v", err)
 	}
-
 	return p2p.Routing.FindPeer(p2p.ctx, id)
+}
+
+func (p2p *P2P) Provider(peerID string, passed bool) error {
+	_, err := peer.Decode(peerID)
+	if err != nil {
+		return errors.Wrap(err, "failed on decode peer id")
+	}
+	ccid, err := cid.Decode(peerID)
+	if err != nil {
+		return fmt.Errorf("failed on cast cid: %v", err)
+	}
+	return p2p.Routing.Provide(p2p.ctx, ccid, passed)
+}
+
+func (p2p *P2P) FindProvidersAsync(peerID string, i int) (<-chan peer.AddrInfo, error) {
+	ccid, err := cid.Decode(peerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed on cast cid: %v", err)
+	}
+	peerInfoC := p2p.Routing.FindProvidersAsync(p2p.ctx, ccid, i)
+	return peerInfoC, nil
 }
