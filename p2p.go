@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
+	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -45,6 +46,8 @@ type P2P struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
+
+
 
 func New(opts ...Option) (*P2P, error) {
 	conf, err := generateConfig(opts...)
@@ -357,6 +360,16 @@ func (p2p *P2P) PeerInfo(peerID string) (peer.AddrInfo, error) {
 	}
 
 	return p2p.host.Peerstore().PeerInfo(pid), nil
+}
+
+func (p2p *P2P) GetRemotePubKey(id peer.ID) (crypto2.PubKey, error) {
+	conns := p2p.host.Network().ConnsToPeer(id)
+
+	for _, conn := range conns {
+		return conn.RemotePublicKey(), nil
+	}
+
+	return nil, fmt.Errorf("get remote pub key: not found")
 }
 
 func (p2p *P2P) PeersNum() int {

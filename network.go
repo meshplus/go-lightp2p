@@ -85,6 +85,9 @@ type PeerHandler interface {
 
 	// store peer to peer store
 	StorePeer(peer.AddrInfo) error
+
+	// GetRemotePubKey gets remote public key
+	GetRemotePubKey(id peer.ID) (crypto.PubKey, error)
 }
 
 type DHTHandler interface {
