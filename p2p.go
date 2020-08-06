@@ -179,28 +179,18 @@ func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer
 }
 
 // Connect peer.
-func (p2p *P2P) Connect(addr string) error {
+func (p2p *P2P) Connect(addr peer.AddrInfo) error {
 	ctx, cancel := context.WithTimeout(p2p.ctx, connectTimeout)
 	defer cancel()
 
-	multiAddr, err := ma.NewMultiaddr(addr)
-	if err != nil {
-		return errors.Wrap(err, "failed on create new multi addr")
-	}
-
-	addrInfo, err := peer.AddrInfoFromP2pAddr(multiAddr)
-	if err != nil {
-		return errors.Wrapf(err, "failed on get addr info from multi addr")
-	}
-
-	if err := p2p.host.Connect(ctx, *addrInfo); err != nil {
+	if err := p2p.host.Connect(ctx, addr); err != nil {
 		return err
 	}
 
-	p2p.host.Peerstore().AddAddrs(addrInfo.ID, addrInfo.Addrs, peerstore.PermanentAddrTTL)
+	p2p.host.Peerstore().AddAddrs(addr.ID, addr.Addrs, peerstore.PermanentAddrTTL)
 
 	if p2p.connectCallback != nil {
-		if err := p2p.connectCallback(addrInfo.ID.String()); err != nil {
+		if err := p2p.connectCallback(addr.ID.String()); err != nil {
 			return err
 		}
 	}
@@ -321,7 +311,7 @@ func (p2p *P2P) PrivKey() crypto.PrivKey {
 	return p2p.config.privKey
 }
 
-func (p2p *P2P) Peers() []peer.AddrInfo {
+func (p2p *P2P) GetPeers() []peer.AddrInfo {
 	var peers []peer.AddrInfo
 
 	peersID := p2p.host.Peerstore().Peers()
@@ -354,49 +344,29 @@ func (p2p *P2P) ReleaseStream(stream network.Stream) {
 	p2p.streamMng.release(stream)
 }
 
-func (p2p *P2P) StorePeer(peerID string, addr string) error {
-	pid, err := peer.Decode(peerID)
-	if err != nil {
-		return errors.Wrap(err, "failed on get get peer id from string")
-	}
-
-	multiAddr, err := ma.NewMultiaddr(addr)
-	if err != nil {
-		return errors.Wrap(err, "failed on create new multi addr")
-	}
-
-	p2p.host.Peerstore().AddAddr(pid, multiAddr, peerstore.AddressTTL)
+func (p2p *P2P) StorePeer(addr peer.AddrInfo) error {
+	p2p.host.Peerstore().AddAddrs(addr.ID, addr.Addrs, peerstore.AddressTTL)
 	return nil
 }
 
-func (p2p *P2P) PeerInfo(peerID string) ([]string, error) {
+func (p2p *P2P) PeerInfo(peerID string) (peer.AddrInfo, error) {
 	pid, err := peer.Decode(peerID)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed on get get peer id from string")
+		return peer.AddrInfo{}, errors.Wrap(err, "failed on get get peer id from string")
 	}
 
-	addrInfo := p2p.host.Peerstore().PeerInfo(pid)
-	var addrs []string
-	for _,addr := range addrInfo.Addrs{
-		addrs=append(addrs,addr.String())
-	}
-
-	return addrs, nil
+	return p2p.host.Peerstore().PeerInfo(pid), nil
 }
 
-func (p2p *P2P) PeerNum() int {
+func (p2p *P2P) PeersNum() int {
 	return len(p2p.host.Peerstore().Peers())
 }
 
-func (p2p *P2P) FindPeer(peerID string) (string, error) {
+func (p2p *P2P) FindPeer(peerID string) (peer.AddrInfo, error) {
 	id, err := peer.Decode(peerID)
 	if err != nil {
-		return "", errors.Wrap(err, "failed on decode peer id")
-	}
-	peer, err := p2p.Routing.FindPeer(p2p.ctx, id)
-	if err != nil {
-		return "", errors.Wrap(err, "failed on find peer")
+		return peer.AddrInfo{}, errors.Wrap(err, "failed on decode peer id")
 	}
 
-	return peer.String(), nil
+	return p2p.Routing.FindPeer(p2p.ctx, id)
 }
