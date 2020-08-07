@@ -8,7 +8,6 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/meshplus/bitxhub-kit/network/pb"
 
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
@@ -92,7 +91,7 @@ func (p2p *P2P) send(s network.Stream, msg []byte) error {
 
 	writer := ggio.NewDelimitedWriter(s)
 
-	if err := writer.WriteMsg(&pb.Message{Data: msg}); err != nil {
+	if err := writer.WriteMsg(&network_pb.Message{Data: msg}); err != nil {
 		return fmt.Errorf("write msg: %w", err)
 	}
 
