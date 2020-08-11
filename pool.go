@@ -31,13 +31,13 @@ func newPool(fn func(string) (network.Stream, error), logger logrus.FieldLogger,
 func (p *Pool) Acquire(peerID string) (network.Stream, error) {
 	select {
 	case r, ok := <-p.resources:
-		p.logger.Info("Acquire:", "Shared Resource")
+		p.logger.Debug("Acquire:", "Shared Resource")
 		if !ok {
 			return nil, errors.New("pool already closed")
 		}
 		return r, nil
 	default:
-		p.logger.Info("Acquire:", "New Resource")
+		p.logger.Debug("Acquire:", "New Resource")
 		return p.factory(peerID)
 	}
 }
@@ -53,9 +53,9 @@ func (p *Pool) Release(r network.Stream) {
 
 	select {
 	case p.resources <- r:
-		p.logger.Info("Release:", "In Queue")
+		p.logger.Debug("Release:", "In Queue")
 	default:
-		p.logger.Info("Release:", "Closing")
+		p.logger.Debug("Release:", "Closing")
 		r.Close()
 	}
 }
