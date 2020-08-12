@@ -74,8 +74,11 @@ type PeerHandler interface {
 	// get local peer addr
 	LocalAddr() string
 
-	// get peers num in peer store
+	// get peers num connected
 	PeersNum() int
+
+	// check if have an open connection to peer
+	IsConnected(peerID string) bool
 
 	// store peer to peer store
 	StorePeer(peer.AddrInfo) error

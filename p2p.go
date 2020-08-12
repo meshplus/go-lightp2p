@@ -359,7 +359,11 @@ func (p2p *P2P) PeerInfo(peerID string) (peer.AddrInfo, error) {
 }
 
 func (p2p *P2P) PeersNum() int {
-	return len(p2p.host.Peerstore().Peers())
+	return len(p2p.host.Network().Peers())
+}
+
+func (p2p *P2P) IsConnected(peerID string) bool {
+	return p2p.host.Network().Connectedness(peer.ID(peerID)) == network.Connected
 }
 
 func (p2p *P2P) FindPeer(peerID string) (peer.AddrInfo, error) {
