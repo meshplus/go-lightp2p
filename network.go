@@ -4,29 +4,35 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type ConnectCallback func(string) error
 
-type MessageHandler func(network.Stream, []byte)
+type MessageHandler func(Stream, []byte)
+
+type Stream interface {
+	RemotePeerID() string
+
+	RemotePeerAddr() ma.Multiaddr
+
+	// async send message with stream
+	AsyncSend([]byte) error
+
+	// send message with stream
+	Send([]byte) ([]byte, error)
+
+	// read message from stream
+	Read(time.Duration) ([]byte, error)
+}
 
 type StreamHandler interface {
 	// get peer new stream true:reusable stream false:non reusable stream
-	GetStream(string, bool) (network.Stream, error)
-
-	// Send message using existed stream
-	AsyncSendWithStream(network.Stream, []byte) error
-
-	// Send message using existed stream
-	SendWithStream(network.Stream, []byte) ([]byte, error)
-
-	// read message from stream
-	ReadFromStream(network.Stream, time.Duration) ([]byte, error)
+	GetStream(string, bool) (Stream, error)
 
 	// release stream
-	ReleaseStream(network.Stream)
+	ReleaseStream(Stream)
 }
 
 type Network interface {

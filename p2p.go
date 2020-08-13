@@ -47,8 +47,6 @@ type P2P struct {
 	cancel context.CancelFunc
 }
 
-
-
 func New(opts ...Option) (*P2P, error) {
 	conf, err := generateConfig(opts...)
 	if err != nil {
@@ -221,16 +219,16 @@ func (p2p *P2P) AsyncSend(peerID string, msg []byte) error {
 	return p2p.send(s, msg)
 }
 
-func (p2p *P2P) AsyncSendWithStream(s network.Stream, msg []byte) error {
-	return p2p.send(s, msg)
+func (p2p *P2P) AsyncSendWithStream(s Stream, msg []byte) error {
+	return p2p.send(s.(*stream), msg)
 }
 
-func (p2p *P2P) SendWithStream(s network.Stream, msg []byte) ([]byte, error) {
-	if err := p2p.send(s, msg); err != nil {
+func (p2p *P2P) SendWithStream(s Stream, msg []byte) ([]byte, error) {
+	if err := p2p.send(s.(*stream), msg); err != nil {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
-	recvMsg := waitMsg(s, waitTimeout)
+	recvMsg := waitMsg(s.(*stream).getStream(), waitTimeout)
 	if recvMsg == nil {
 		return nil, errors.New("send msg to stream timeout")
 	}
@@ -238,8 +236,8 @@ func (p2p *P2P) SendWithStream(s network.Stream, msg []byte) ([]byte, error) {
 	return recvMsg.Data, nil
 }
 
-func (p2p *P2P) ReadFromStream(s network.Stream, timeout time.Duration) ([]byte, error) {
-	recvMsg := waitMsg(s, timeout)
+func (p2p *P2P) ReadFromStream(s Stream, timeout time.Duration) ([]byte, error) {
+	recvMsg := waitMsg(s.(*stream).getStream(), timeout)
 	if recvMsg == nil {
 		return nil, errors.New("read msg from stream timeout")
 	}
@@ -258,7 +256,7 @@ func (p2p *P2P) Send(peerID string, msg []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
-	recvMsg := waitMsg(s, waitTimeout)
+	recvMsg := waitMsg(s.stream, waitTimeout)
 	if recvMsg == nil {
 		return nil, fmt.Errorf("sync send msg to node[%s] timeout", peerID)
 	}
@@ -331,7 +329,7 @@ func (p2p *P2P) LocalAddr() string {
 	return p2p.config.localAddr
 }
 
-func (p2p *P2P) GetStream(peerID string, reusable bool) (network.Stream, error) {
+func (p2p *P2P) GetStream(peerID string, reusable bool) (Stream, error) {
 	if reusable {
 		return p2p.streamMng.get(peerID)
 	}
@@ -341,11 +339,30 @@ func (p2p *P2P) GetStream(peerID string, reusable bool) (network.Stream, error) 
 		return nil, errors.Wrap(err, "failed on decode peer id")
 	}
 
-	return p2p.host.NewStream(p2p.ctx, pid, p2p.config.protocolIDs[nonReusableProtocolIndex])
+	s, err := p2p.host.NewStream(p2p.ctx, pid, p2p.config.protocolIDs[nonReusableProtocolIndex])
+	if err != nil {
+		return nil, errors.Wrap(err, "failed on create new stream")
+	}
+
+	return newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex]), nil
 }
 
-func (p2p *P2P) ReleaseStream(stream network.Stream) {
-	p2p.streamMng.release(stream)
+func (p2p *P2P) ReleaseStream(s Stream) {
+	stream, ok := s.(*stream)
+	if !ok {
+		p2p.logger.Error("stream type error")
+		return
+	}
+
+	if stream.getProtocolID() == p2p.config.protocolIDs[nonReusableProtocolIndex] {
+		stream.close()
+		return
+	}
+
+	if stream.getProtocolID() == p2p.config.protocolIDs[reusableProtocolIndex] {
+		p2p.streamMng.release(stream)
+		return
+	}
 }
 
 func (p2p *P2P) StorePeer(addr peer.AddrInfo) error {

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/pkg/errors"
@@ -38,7 +37,7 @@ func newStreamMng(ctx context.Context, host host.Host, protocolID protocol.ID, l
 	}
 }
 
-func (mng *streamMgr) get(peerID string) (network.Stream, error) {
+func (mng *streamMgr) get(peerID string) (*stream, error) {
 	mng.Lock()
 	defer mng.Unlock()
 
@@ -52,11 +51,16 @@ func (mng *streamMgr) get(peerID string) (network.Stream, error) {
 		mng.pools[peerID] = pool
 	}
 
-	return mng.pools[peerID].Acquire(peerID)
+	s, err := mng.pools[peerID].Acquire(peerID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed on acquire stream")
+	}
+
+	return s, nil
 }
 
-func (mng *streamMgr) release(stream network.Stream) {
-	peerID := stream.Conn().RemotePeer().String()
+func (mng *streamMgr) release(stream *stream) {
+	peerID := stream.RemotePeerID()
 	mng.Lock()
 	defer mng.Unlock()
 
@@ -81,17 +85,17 @@ func (mng *streamMgr) remove(peerID string) {
 	delete(mng.pools, peerID)
 }
 
-func (mng *streamMgr) newStream(peerID string) (network.Stream, error) {
+func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 	pid, err := peer.Decode(peerID)
 	ctx, cancel := context.WithTimeout(mng.ctx, newStreamTimeout)
 	defer cancel()
-	mng.logger.WithFields(logrus.Fields{"protocol id":mng.protocolID}).Info("new stream")
+	mng.logger.WithFields(logrus.Fields{"protocol id": mng.protocolID}).Info("new stream")
 	s, err := mng.host.NewStream(ctx, pid, mng.protocolID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on creat new stream")
 	}
 
-	return s, nil
+	return newStream(s, mng.protocolID), nil
 }
 
 func (mng *streamMgr) stop() {
