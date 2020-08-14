@@ -8,7 +8,7 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/pkg/errors"
+	//"github.com/pkg/errors"
 
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
@@ -21,7 +21,7 @@ func (p2p *P2P) handleMessage(s *stream, reader ggio.ReadCloser) error {
 				p2p.logger.WithField("error", err).Error("Reset stream")
 			}
 
-			return errors.Wrap(err, "failed on read msg")
+			//return errors.Wrap(err, "failed on read msg")
 		}
 
 		return nil
