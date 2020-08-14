@@ -8,25 +8,30 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/pkg/errors"
 
 	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
 
-func (p2p *P2P) handleMessage(s network.Stream, reader ggio.ReadCloser) {
+func (p2p *P2P) handleMessage(s *stream, reader ggio.ReadCloser) error {
 	msg := &network_pb.Message{}
 	if err := reader.ReadMsg(msg); err != nil {
 		if err != io.EOF {
-			if err := s.Reset(); err != nil {
+			if err := s.reset(); err != nil {
 				p2p.logger.WithField("error", err).Error("Reset stream")
 			}
+
+			return errors.Wrap(err, "failed on read msg")
 		}
 
-		return
+		return nil
 	}
 
 	if p2p.messageHandler != nil {
 		p2p.messageHandler(s, msg.Data)
 	}
+
+	return nil
 }
 
 // handle newly connected stream
@@ -39,7 +44,9 @@ func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	for {
 		//p2p.logger.Info("handleNewStreamReusable loop ...")
-		p2p.handleMessage(s, reader)
+		if err := p2p.handleMessage(newStream(s, p2p.config.protocolIDs[reusableProtocolIndex]), reader); err != nil {
+			break
+		}
 	}
 }
 
@@ -52,7 +59,7 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	p2p.logger.Info("handleNewStream non reusable ...")
 
-	p2p.handleMessage(s, reader)
+	p2p.handleMessage(newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex]), reader)
 }
 
 // waitMsg wait the incoming messages within time duration.
@@ -82,14 +89,14 @@ func waitMsg(stream io.Reader, timeout time.Duration) *network_pb.Message {
 	}
 }
 
-func (p2p *P2P) send(s network.Stream, msg []byte) error {
+func (p2p *P2P) send(s *stream, msg []byte) error {
 	deadline := time.Now().Add(sendTimeout)
 
-	if err := s.SetWriteDeadline(deadline); err != nil {
+	if err := s.getStream().SetWriteDeadline(deadline); err != nil {
 		return fmt.Errorf("set deadline: %w", err)
 	}
 
-	writer := ggio.NewDelimitedWriter(s)
+	writer := ggio.NewDelimitedWriter(s.getStream())
 
 	if err := writer.WriteMsg(&network_pb.Message{Data: msg}); err != nil {
 		return fmt.Errorf("write msg: %w", err)

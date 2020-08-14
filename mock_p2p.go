@@ -120,9 +120,10 @@ func (s *mockStream) Conn() network.Conn {
 		remotePeer: s.remotePeer,
 	}
 }
-func (s *mockStream) Read(p []byte) (n int, err error) {
-	panic(ErrMockP2PNotSupport)
-}
+//func (s *mockStream) Read(p []byte) (n int, err error) {
+//	panic(ErrMockP2PNotSupport)
+//}
+
 func (s *mockStream) Write(p []byte) (n int, err error) {
 	panic(ErrMockP2PNotSupport)
 }
@@ -142,6 +143,31 @@ func (s *mockStream) SetReadDeadline(time.Time) error {
 func (s *mockStream) SetWriteDeadline(time.Time) error {
 	panic(ErrMockP2PNotSupport)
 }
+
+func (s *mockStream) RemotePeerID() string{
+	return ""
+}
+
+func (s *mockStream)RemotePeerAddr() ma.Multiaddr {
+	addr,_:=	ma.NewMultiaddr("")
+	return addr
+}
+
+// async send message with stream
+func (s *mockStream)AsyncSend([]byte) error{
+	return nil
+}
+
+// send message with stream
+func (s *mockStream)Send([]byte) ([]byte, error){
+	return nil,nil
+}
+
+// read message from stream
+func (s *mockStream)Read(time.Duration) ([]byte, error){
+	return nil,nil
+}
+
 
 type mockCon struct {
 	localPeer  string
@@ -277,7 +303,7 @@ func (m *MockP2P) Broadcast(peerIDs []string, msg []byte) error {
 	return nil
 }
 
-func (m *MockP2P) GetStream(peerID string, reusable bool) (network.Stream, error) {
+func (m *MockP2P) GetStream(peerID string, reusable bool) (Stream, error) {
 	_, exist := m.host.connects[peerID]
 	if !exist {
 		return nil, ErrPeerNotExist
@@ -298,7 +324,7 @@ func (m *MockP2P) GetStream(peerID string, reusable bool) (network.Stream, error
 	return stream, nil
 }
 
-func (m *MockP2P) AsyncSendWithStream(s network.Stream, msg []byte) error {
+func (m *MockP2P) AsyncSendWithStream(s Stream, msg []byte) error {
 	stream := s.(*mockStream)
 	connect, exist := m.host.connects[stream.remotePeer]
 	if !exist {
@@ -328,7 +354,7 @@ func (m *MockP2P) AsyncSendWithStream(s network.Stream, msg []byte) error {
 	return nil
 }
 
-func (m *MockP2P) SendWithStream(s network.Stream, msg []byte) ([]byte, error) {
+func (m *MockP2P) SendWithStream(s Stream, msg []byte) ([]byte, error) {
 	stream := s.(*mockStream)
 	connect, exist := m.host.connects[stream.remotePeer]
 	if !exist {
@@ -359,7 +385,7 @@ func (m *MockP2P) SendWithStream(s network.Stream, msg []byte) ([]byte, error) {
 	return res.data, nil
 }
 
-func (m *MockP2P) ReadFromStream(s network.Stream, timeout time.Duration) ([]byte, error) {
+func (m *MockP2P) ReadFromStream(s Stream, timeout time.Duration) ([]byte, error) {
 	stream := s.(*mockStream)
 	_, exist := m.host.connects[stream.remotePeer]
 	if !exist {
@@ -373,7 +399,7 @@ func (m *MockP2P) ReadFromStream(s network.Stream, timeout time.Duration) ([]byt
 	}
 }
 
-func (m *MockP2P) ReleaseStream(s network.Stream) {
+func (m *MockP2P) ReleaseStream(s Stream) {
 	stream := s.(*mockStream)
 	close(stream.sendCh)
 	close(stream.receiveCh)
