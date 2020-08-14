@@ -95,7 +95,7 @@ func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 		return nil, errors.Wrap(err, "failed on creat new stream")
 	}
 
-	return newStream(s, mng.protocolID), nil
+	return newStream(s, mng.protocolID, DirOutbound), nil
 }
 
 func (mng *streamMgr) stop() {
