@@ -272,7 +272,7 @@ func TestSendWithNonReusableStream(t *testing.T) {
 			}
 			return
 		}
-		assert.Equal(t,ack,rawMsg)
+		assert.Equal(t, ack, rawMsg)
 	}
 }
 
@@ -283,7 +283,7 @@ func TestSendWithReusableStream(t *testing.T) {
 	ack := []byte("ack")
 	p2.SetMessageHandler(func(s Stream, data []byte) {
 		fmt.Println("p2 received:", string(data))
-		assert.Equal(t,msg,data)
+		assert.Equal(t, msg, data)
 		err := s.AsyncSend(ack)
 		assert.Nil(t, err)
 		p2.ReleaseStream(s)
@@ -306,7 +306,7 @@ func TestSendWithReusableStream(t *testing.T) {
 	assert.Nil(t, err)
 	rawMsg, err := s.Read(2 * time.Second)
 	assert.Nil(t, err)
-	assert.Equal(t,ack,rawMsg)
+	assert.Equal(t, ack, rawMsg)
 }
 
 func TestP2p_MultiSend(t *testing.T) {

@@ -3,9 +3,10 @@ package network
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/go-cid"
 	"sync"
 	"time"
+
+	"github.com/ipfs/go-cid"
 
 	"github.com/libp2p/go-libp2p"
 	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
@@ -215,8 +216,11 @@ func (p2p *P2P) AsyncSend(peerID string, msg []byte) error {
 		return errors.Wrap(err, "failed on get stream")
 	}
 
-	defer p2p.streamMng.release(s)
-	return p2p.send(s, msg)
+	if err := p2p.send(s, msg); err != nil {
+		return err
+	}
+	p2p.streamMng.release(s)
+	return nil
 }
 
 func (p2p *P2P) AsyncSendWithStream(s Stream, msg []byte) error {
@@ -229,11 +233,11 @@ func (p2p *P2P) Send(peerID string, msg []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed on get stream")
 	}
 
-	defer p2p.streamMng.release(s)
 	if err := p2p.send(s, msg); err != nil {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
+	defer p2p.streamMng.release(s)
 	recvMsg, err := waitMsg(s.stream, waitTimeout)
 	if err != nil {
 		return nil, err
