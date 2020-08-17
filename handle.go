@@ -43,9 +43,23 @@ func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	for {
-		if err := p2p.handleMessage(newStream(s, p2p.config.protocolIDs[reusableProtocolIndex], DirInbound), reader); err != nil {
+		stream := newStream(s, p2p.config.protocolIDs[reusableProtocolIndex], DirInbound)
+		msg := &network_pb.Message{}
+		if err := reader.ReadMsg(msg); err != nil {
+			if err != io.EOF {
+				if err := stream.reset(); err != nil {
+					p2p.logger.WithField("error", err).Error("Reset stream")
+				}
+
+			}
+
 			return
 		}
+
+		if p2p.messageHandler != nil {
+			p2p.messageHandler(stream, msg.Data)
+		}
+
 	}
 }
 
