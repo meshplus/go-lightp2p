@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +21,7 @@ func TestMockP2P_Send(t *testing.T) {
 	err = peer2.Start()
 	assert.Nil(t, err)
 
-	peer1.SetMessageHandler(func(s network.Stream, msg []byte) {
+	peer1.SetMessageHandler(func(s Stream, msg []byte) {
 		err = peer1.AsyncSendWithStream(s, msg)
 		assert.Nil(t, err)
 	})
@@ -46,10 +45,10 @@ func TestMockP2P_AsyncSend(t *testing.T) {
 	assert.Nil(t, err)
 
 	data := []byte("test")
-	peer1.SetMessageHandler(func(s network.Stream, msg []byte) {
+	peer1.SetMessageHandler(func(s Stream, msg []byte) {
 		assert.Equal(t, string(data), string(msg))
 	})
-	peer2.SetMessageHandler(func(s network.Stream, msg []byte) {
+	peer2.SetMessageHandler(func(s Stream, msg []byte) {
 		assert.Equal(t, string(data), string(msg))
 	})
 
@@ -74,7 +73,7 @@ func TestMockP2P_AsyncSendWithStream(t *testing.T) {
 
 	data := genTestMessages(100)
 
-	peer1.SetMessageHandler(func(s network.Stream, msg []byte) {
+	peer1.SetMessageHandler(func(s Stream, msg []byte) {
 		err = peer1.AsyncSendWithStream(s, msg)
 		assert.Nil(t, err)
 		for _, v := range data {
@@ -122,7 +121,7 @@ func TestMockP2P_Broadcast(t *testing.T) {
 		err = peer.Start()
 		assert.Nil(t, err)
 
-		peer.SetMessageHandler(func(s network.Stream, msg []byte) {
+		peer.SetMessageHandler(func(s Stream, msg []byte) {
 			assert.Equal(t, string(data), string(msg))
 		})
 
@@ -161,7 +160,7 @@ func TestMockP2P_ParallelSend(t *testing.T) {
 		assert.Nil(t, err)
 		receivers = append(receivers, peer)
 
-		peer.SetMessageHandler(func(s network.Stream, msg []byte) {
+		peer.SetMessageHandler(func(s Stream, msg []byte) {
 			err = sender.AsyncSendWithStream(s, msg)
 			assert.Nil(t, err)
 			for _, v := range data {
@@ -221,7 +220,7 @@ func TestMockP2P_ParallelReceive(t *testing.T) {
 
 	data := genTestMessages(1000)
 
-	receiver.SetMessageHandler(func(s network.Stream, msg []byte) {
+	receiver.SetMessageHandler(func(s Stream, msg []byte) {
 		err = receiver.AsyncSendWithStream(s, msg)
 		assert.Nil(t, err)
 		for _, v := range data {

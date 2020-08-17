@@ -13,20 +13,37 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+type Direction int
+
+const (
+	// DirInbound is for when the remote peer initiated a stream.
+	DirInbound = iota
+	// DirOutbound is for when the local peer initiated a stream.
+	DirOutbound
+)
+
 type stream struct {
-	stream network.Stream
-	pid    protocol.ID
+	direction Direction
+	stream    network.Stream
+	pid       protocol.ID
+	valid   bool
 }
 
-func newStream(s network.Stream, pid protocol.ID) *stream {
+func newStream(s network.Stream, pid protocol.ID, dir Direction) *stream {
 	return &stream{
-		stream: s,
-		pid:    pid,
+		direction: dir,
+		stream:    s,
+		pid:       pid,
+		valid:   true,
 	}
 }
 
 func (s *stream) close() error {
 	return s.stream.Close()
+}
+
+func (s *stream) getDirection() Direction {
+	return s.direction
 }
 
 func (s *stream) getStream() network.Stream {
@@ -35,6 +52,10 @@ func (s *stream) getStream() network.Stream {
 
 func (s *stream) getProtocolID() protocol.ID {
 	return s.pid
+}
+
+func (s *stream) isValid() bool {
+	return s.valid
 }
 
 func (s *stream) reset() error {
@@ -53,12 +74,14 @@ func (s *stream) AsyncSend(msg []byte) error {
 	deadline := time.Now().Add(sendTimeout)
 
 	if err := s.getStream().SetWriteDeadline(deadline); err != nil {
+		s.valid = false
 		return fmt.Errorf("set deadline: %w", err)
 	}
 
 	writer := ggio.NewDelimitedWriter(s.getStream())
 
 	if err := writer.WriteMsg(&network_pb.Message{Data: msg}); err != nil {
+		s.valid = false
 		return fmt.Errorf("write msg: %w", err)
 	}
 
@@ -70,18 +93,20 @@ func (s *stream) Send(msg []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
-	recvMsg := waitMsg(s.getStream(), waitTimeout)
-	if recvMsg == nil {
-		return nil, errors.New("send msg to stream timeout")
+	recvMsg, err := waitMsg(s.getStream(), waitTimeout)
+	if err != nil {
+		s.valid = false
+		return nil, err
 	}
 
 	return recvMsg.Data, nil
 }
 
 func (s *stream) Read(timeout time.Duration) ([]byte, error) {
-	recvMsg := waitMsg(s.getStream(), timeout)
-	if recvMsg == nil {
-		return nil, errors.New("read msg from stream timeout")
+	recvMsg, err := waitMsg(s.getStream(), timeout)
+	if err != nil {
+		s.valid = false
+		return nil, err
 	}
 
 	return recvMsg.Data, nil

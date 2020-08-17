@@ -4,16 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"github.com/stretchr/testify/require"
+	"io"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -48,9 +48,9 @@ func TestP2P_MultiStreamSend(t *testing.T) {
 	fmt.Println(addr1)
 	msg := []byte("hello world")
 	ack := []byte("ack")
-	p2.SetMessageHandler(func(s network.Stream, data []byte) {
+	p2.SetMessageHandler(func(s Stream, data []byte) {
 		fmt.Println("p2 received:", string(data))
-		err := p2.AsyncSendWithStream(s, ack)
+		err := s.AsyncSend(ack)
 		assert.Nil(t, err)
 	})
 
@@ -86,7 +86,7 @@ func TestP2P_MultiStreamAsyncSend(t *testing.T) {
 	p2, addr2 := generateNetwork(t, 6006)
 	fmt.Println(addr1)
 	msg := []byte("hello world")
-	p2.SetMessageHandler(func(s network.Stream, data []byte) {
+	p2.SetMessageHandler(func(s Stream, data []byte) {
 		fmt.Println("p2 received:", string(data))
 	})
 
@@ -121,9 +121,9 @@ func TestP2P_MultiStreamSendWithStream(t *testing.T) {
 	p2, addr2 := generateNetwork(t, 6006)
 	msg := []byte("hello world")
 	ack := []byte("ack")
-	p2.SetMessageHandler(func(s network.Stream, data []byte) {
+	p2.SetMessageHandler(func(s Stream, data []byte) {
 		fmt.Println("p2 received:", string(data))
-		err := p2.AsyncSendWithStream(s, ack)
+		err := s.AsyncSend(ack)
 		assert.Nil(t, err)
 	})
 
@@ -144,7 +144,7 @@ func TestP2P_MultiStreamSendWithStream(t *testing.T) {
 		s, err := p1.GetStream(p2.PeerID(), true)
 		assert.Nil(t, err)
 		defer p1.ReleaseStream(s)
-		resp, err := p1.SendWithStream(s, msg)
+		resp, err := s.Send(msg)
 		assert.Nil(t, err)
 		assert.EqualValues(t, resp, ack)
 	}
@@ -162,7 +162,7 @@ func TestP2P_MultiStreamSendWithAsyncStream(t *testing.T) {
 	p2, addr2 := generateNetwork(t, 6006)
 	fmt.Println(addr1)
 	msg := []byte("hello world")
-	p2.SetMessageHandler(func(s network.Stream, data []byte) {
+	p2.SetMessageHandler(func(s Stream, data []byte) {
 		fmt.Println("p2 received:", string(data))
 	})
 
@@ -183,7 +183,7 @@ func TestP2P_MultiStreamSendWithAsyncStream(t *testing.T) {
 		s, err := p1.GetStream(p2.PeerID(), true)
 		assert.Nil(t, err)
 		defer p1.ReleaseStream(s)
-		err = p1.AsyncSendWithStream(s, msg)
+		err = s.AsyncSend(msg)
 		assert.Nil(t, err)
 	}
 
@@ -203,7 +203,7 @@ func TestP2P_AsyncSend(t *testing.T) {
 
 	ch := make(chan struct{})
 
-	p2.SetMessageHandler(func(s network.Stream, data []byte) {
+	p2.SetMessageHandler(func(s Stream, data []byte) {
 		fmt.Println("receive:", string(data))
 		assert.EqualValues(t, msg, data)
 		close(ch)
@@ -234,6 +234,81 @@ func TestP2P_AsyncSend(t *testing.T) {
 	}
 }
 
+func TestSendWithNonReusableStream(t *testing.T) {
+	p1, addr1 := generateNetwork(t, 6005)
+	p2, addr2 := generateNetwork(t, 6006)
+	msg := []byte("hello world")
+	ack := []byte("ack")
+	p2.SetMessageHandler(func(s Stream, data []byte) {
+		fmt.Println("p2 received:", string(data))
+		err := s.AsyncSend(ack)
+		assert.Nil(t, err)
+		err = s.AsyncSend(ack)
+		assert.Nil(t, err)
+		p2.ReleaseStream(s)
+	})
+
+	err := p1.Start()
+	assert.Nil(t, err)
+	err = p2.Start()
+	assert.Nil(t, err)
+
+	err = p1.Connect(addr2)
+	assert.Nil(t, err)
+	err = p2.Connect(addr1)
+	assert.Nil(t, err)
+
+	s, err := p1.GetStream(p2.PeerID(), false)
+	assert.Nil(t, err)
+	defer p1.ReleaseStream(s)
+	err = s.AsyncSend(msg)
+	assert.Nil(t, err)
+	for {
+		rawMsg, err := s.Read(2 * time.Second)
+		if err != nil {
+			if err != io.EOF {
+				t.Fatal(err)
+				return
+			}
+			return
+		}
+		assert.Equal(t,ack,rawMsg)
+	}
+}
+
+func TestSendWithReusableStream(t *testing.T) {
+	p1, addr1 := generateNetwork(t, 6005)
+	p2, addr2 := generateNetwork(t, 6006)
+	msg := []byte("hello world")
+	ack := []byte("ack")
+	p2.SetMessageHandler(func(s Stream, data []byte) {
+		fmt.Println("p2 received:", string(data))
+		assert.Equal(t,msg,data)
+		err := s.AsyncSend(ack)
+		assert.Nil(t, err)
+		p2.ReleaseStream(s)
+	})
+
+	err := p1.Start()
+	assert.Nil(t, err)
+	err = p2.Start()
+	assert.Nil(t, err)
+
+	err = p1.Connect(addr2)
+	assert.Nil(t, err)
+	err = p2.Connect(addr1)
+	assert.Nil(t, err)
+
+	s, err := p1.GetStream(p2.PeerID(), true)
+	assert.Nil(t, err)
+	defer p1.ReleaseStream(s)
+	err = s.AsyncSend(msg)
+	assert.Nil(t, err)
+	rawMsg, err := s.Read(2 * time.Second)
+	assert.Nil(t, err)
+	assert.Equal(t,ack,rawMsg)
+}
+
 func TestP2p_MultiSend(t *testing.T) {
 	p1, addr1 := generateNetwork(t, 6007)
 	p2, addr2 := generateNetwork(t, 6008)
@@ -253,7 +328,7 @@ func TestP2p_MultiSend(t *testing.T) {
 	count := 0
 	ch := make(chan struct{})
 
-	p2.SetMessageHandler(func(s network.Stream, data []byte) {
+	p2.SetMessageHandler(func(s Stream, data []byte) {
 		assert.EqualValues(t, msg, data)
 		count++
 		if count == N {

@@ -43,9 +43,8 @@ func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	for {
-		//p2p.logger.Info("handleNewStreamReusable loop ...")
-		if err := p2p.handleMessage(newStream(s, p2p.config.protocolIDs[reusableProtocolIndex]), reader); err != nil {
-			break
+		if err := p2p.handleMessage(newStream(s, p2p.config.protocolIDs[reusableProtocolIndex], DirInbound), reader); err != nil {
+			return
 		}
 	}
 }
@@ -59,19 +58,18 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	p2p.logger.Info("handleNewStream non reusable ...")
 
-	p2p.handleMessage(newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex]), reader)
+	p2p.handleMessage(newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex], DirInbound), reader)
 }
 
 // waitMsg wait the incoming messages within time duration.
-func waitMsg(stream io.Reader, timeout time.Duration) *network_pb.Message {
+func waitMsg(stream io.Reader, timeout time.Duration) (*network_pb.Message, error) {
 	reader := ggio.NewDelimitedReader(stream, network.MessageSizeMax)
 
-	ch := make(chan *network_pb.Message)
-
+	ch := make(chan error)
+	msg := &network_pb.Message{}
 	go func() {
-		msg := &network_pb.Message{}
-		if err := reader.ReadMsg(msg); err == nil {
-			ch <- msg
+		if err := reader.ReadMsg(msg); err != nil {
+			ch <- err
 		} else {
 			ch <- nil
 		}
@@ -82,10 +80,10 @@ func waitMsg(stream io.Reader, timeout time.Duration) *network_pb.Message {
 	select {
 	case r := <-ch:
 		cancel()
-		return r
+		return msg, r
 	case <-ctx.Done():
 		cancel()
-		return nil
+		return nil, errors.New("wait msg timeout")
 	}
 }
 
