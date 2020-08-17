@@ -6,15 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/meshplus/bitxhub-kit/log"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
-
-	"github.com/libp2p/go-libp2p-core/crypto"
-	ic "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 )
 
 var (
@@ -94,6 +90,7 @@ func GenMockHostManager(peers []string) *MockHostManager {
 }
 
 type mockStream struct {
+	host        *mockHost
 	localPeer   string
 	remotePeer  string
 	sendCh      chan *mockMsg
@@ -102,116 +99,84 @@ type mockStream struct {
 	isConnected bool
 }
 
-func (s *mockStream) Protocol() protocol.ID {
+func (s *mockStream) RemotePeerID() string {
+	return s.remotePeer
+}
+
+func (s *mockStream) RemotePeerAddr() ma.Multiaddr {
 	panic(ErrMockP2PNotSupport)
 }
 
-func (s *mockStream) SetProtocol(id protocol.ID) {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (s *mockStream) Stat() network.Stat {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (s *mockStream) Conn() network.Conn {
-	return &mockCon{
-		localPeer:  s.localPeer,
-		remotePeer: s.remotePeer,
+func (s *mockStream) AsyncSend(msg []byte) error {
+	connect, exist := s.host.connects[s.remotePeer]
+	if !exist {
+		return errors.New(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
 	}
-}
-//func (s *mockStream) Read(p []byte) (n int, err error) {
-//	panic(ErrMockP2PNotSupport)
-//}
-
-func (s *mockStream) Write(p []byte) (n int, err error) {
-	panic(ErrMockP2PNotSupport)
-}
-func (s *mockStream) Reset() error {
-	panic(ErrMockP2PNotSupport)
-}
-func (s *mockStream) Close() error {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (s *mockStream) SetDeadline(time.Time) error {
-	panic(ErrMockP2PNotSupport)
-}
-func (s *mockStream) SetReadDeadline(time.Time) error {
-	panic(ErrMockP2PNotSupport)
-}
-func (s *mockStream) SetWriteDeadline(time.Time) error {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (s *mockStream) RemotePeerID() string{
-	return ""
-}
-
-func (s *mockStream)RemotePeerAddr() ma.Multiaddr {
-	addr,_:=	ma.NewMultiaddr("")
-	return addr
-}
-
-// async send message with stream
-func (s *mockStream)AsyncSend([]byte) error{
+	msgCopy := make([]byte, len(msg))
+	copy(msgCopy, msg)
+	data := &mockMsg{
+		stream: &mockStream{
+			localPeer:   s.remotePeer,
+			remotePeer:  s.localPeer,
+			sendCh:      s.receiveCh,
+			receiveCh:   s.sendCh,
+			lock:        &sync.RWMutex{},
+			isConnected: true,
+		},
+		data: msgCopy,
+	}
+	s.lock.Lock()
+	if s.isConnected {
+		s.sendCh <- data
+	} else {
+		connect <- data
+	}
+	s.isConnected = true
+	s.lock.Unlock()
 	return nil
 }
 
-// send message with stream
-func (s *mockStream)Send([]byte) ([]byte, error){
-	return nil,nil
+func (s *mockStream) Send(msg []byte) ([]byte, error) {
+	connect, exist := s.host.connects[s.remotePeer]
+	if !exist {
+		return nil, errors.New(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
+	}
+	msgCopy := make([]byte, len(msg))
+	copy(msgCopy, msg)
+	data := &mockMsg{
+		stream: &mockStream{
+			localPeer:   s.remotePeer,
+			remotePeer:  s.localPeer,
+			sendCh:      s.receiveCh,
+			receiveCh:   s.sendCh,
+			lock:        &sync.RWMutex{},
+			isConnected: true,
+		},
+		data: msgCopy,
+	}
+	s.lock.Lock()
+	if s.isConnected {
+		s.sendCh <- data
+	} else {
+		connect <- data
+	}
+	s.isConnected = true
+	s.lock.Unlock()
+	res := <-s.receiveCh
+	return res.data, nil
 }
 
-// read message from stream
-func (s *mockStream)Read(time.Duration) ([]byte, error){
-	return nil,nil
-}
-
-
-type mockCon struct {
-	localPeer  string
-	remotePeer string
-}
-
-func (c *mockCon) Close() error {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) LocalPeer() peer.ID {
-	return peer.ID(c.localPeer)
-}
-
-func (c *mockCon) LocalPrivateKey() ic.PrivKey {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) RemotePeer() peer.ID {
-	return peer.ID(c.remotePeer)
-}
-
-func (c *mockCon) RemotePublicKey() ic.PubKey {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) LocalMultiaddr() ma.Multiaddr {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) RemoteMultiaddr() ma.Multiaddr {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) NewStream() (network.Stream, error) {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) GetStreams() []network.Stream {
-	panic(ErrMockP2PNotSupport)
-}
-
-func (c *mockCon) Stat() network.Stat {
-	panic(ErrMockP2PNotSupport)
+func (s *mockStream) Read(timeout time.Duration) ([]byte, error) {
+	_, exist := s.host.connects[s.remotePeer]
+	if !exist {
+		return nil, errors.New(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
+	}
+	select {
+	case res := <-s.receiveCh:
+		return res.data, nil
+	case <-time.After(timeout):
+		return nil, errors.New("timeout")
+	}
 }
 
 func (m *MockP2P) Start() error {
@@ -219,6 +184,7 @@ func (m *MockP2P) Start() error {
 		for {
 			select {
 			case msg := <-m.receiveCh:
+				msg.stream.host = m.host
 				go m.messageHandler(msg.stream, msg.data)
 			}
 		}
@@ -314,6 +280,7 @@ func (m *MockP2P) GetStream(peerID string, reusable bool) (Stream, error) {
 	sendCh := make(chan *mockMsg)
 	receiveCh := make(chan *mockMsg)
 	stream := &mockStream{
+		host:        m.host,
 		localPeer:   m.PeerID(),
 		remotePeer:  peerID,
 		sendCh:      sendCh,
@@ -322,81 +289,6 @@ func (m *MockP2P) GetStream(peerID string, reusable bool) (Stream, error) {
 		isConnected: false,
 	}
 	return stream, nil
-}
-
-func (m *MockP2P) AsyncSendWithStream(s Stream, msg []byte) error {
-	stream := s.(*mockStream)
-	connect, exist := m.host.connects[stream.remotePeer]
-	if !exist {
-		return errors.New(fmt.Sprintf("remote peer [%s] not exist", stream.remotePeer))
-	}
-	msgCopy := make([]byte, len(msg))
-	copy(msgCopy, msg)
-	data := &mockMsg{
-		stream: &mockStream{
-			localPeer:   stream.remotePeer,
-			remotePeer:  stream.localPeer,
-			sendCh:      stream.receiveCh,
-			receiveCh:   stream.sendCh,
-			lock:        &sync.RWMutex{},
-			isConnected: true,
-		},
-		data: msgCopy,
-	}
-	stream.lock.Lock()
-	if stream.isConnected {
-		stream.sendCh <- data
-	} else {
-		connect <- data
-	}
-	stream.isConnected = true
-	stream.lock.Unlock()
-	return nil
-}
-
-func (m *MockP2P) SendWithStream(s Stream, msg []byte) ([]byte, error) {
-	stream := s.(*mockStream)
-	connect, exist := m.host.connects[stream.remotePeer]
-	if !exist {
-		return nil, errors.New(fmt.Sprintf("remote peer [%s] not exist", stream.remotePeer))
-	}
-	msgCopy := make([]byte, len(msg))
-	copy(msgCopy, msg)
-	data := &mockMsg{
-		stream: &mockStream{
-			localPeer:   stream.remotePeer,
-			remotePeer:  stream.localPeer,
-			sendCh:      stream.receiveCh,
-			receiveCh:   stream.sendCh,
-			lock:        &sync.RWMutex{},
-			isConnected: true,
-		},
-		data: msgCopy,
-	}
-	stream.lock.Lock()
-	if stream.isConnected {
-		stream.sendCh <- data
-	} else {
-		connect <- data
-	}
-	stream.isConnected = true
-	stream.lock.Unlock()
-	res := <-stream.receiveCh
-	return res.data, nil
-}
-
-func (m *MockP2P) ReadFromStream(s Stream, timeout time.Duration) ([]byte, error) {
-	stream := s.(*mockStream)
-	_, exist := m.host.connects[stream.remotePeer]
-	if !exist {
-		return nil, errors.New(fmt.Sprintf("remote peer [%s] not exist", stream.remotePeer))
-	}
-	select {
-	case res := <-stream.receiveCh:
-		return res.data, nil
-	case <-time.After(timeout):
-		return nil, errors.New("timeout")
-	}
 }
 
 func (m *MockP2P) ReleaseStream(s Stream) {
