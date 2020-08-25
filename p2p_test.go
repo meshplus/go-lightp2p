@@ -445,6 +445,29 @@ func generateNetwork(t *testing.T, port int) (Network, peer.AddrInfo) {
 	return p2p, *addrInfo
 }
 
+func generateBMNetwork(b *testing.B, port int) (Network, peer.AddrInfo) {
+	privKey, pubKey, err := crypto.GenerateECDSAKeyPair(rand.Reader)
+	assert.Nil(b, err)
+
+	pid1, err := peer.IDFromPublicKey(pubKey)
+	assert.Nil(b, err)
+	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
+	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
+	p2p, err := New(
+		WithLocalAddr(addr),
+		WithPrivateKey(privKey),
+		WithProtocolIDs([]string{protocolID1, protocolID2}),
+	)
+	assert.Nil(b, err)
+
+	multiaddr, err := ma.NewMultiaddr(maddr)
+	require.Nil(b, err)
+	addrInfo, err := peer.AddrInfoFromP2pAddr(multiaddr)
+	require.Nil(b, err)
+
+	return p2p, *addrInfo
+}
+
 func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network, *peer.AddrInfo, peer.ID) {
 	privKey, pubKey, err := crypto.GenerateECDSAKeyPair(rand.Reader)
 	assert.Nil(t, err)
@@ -467,4 +490,76 @@ func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network
 	require.Nil(t, err)
 
 	return p2p, addrInfo, pid1
+}
+
+func BenchmarkSendWithStreamReusable(b *testing.B){
+	p1, addr1 := generateBMNetwork(b, 6007)
+	p2, addr2 := generateBMNetwork(b, 6008)
+
+	err := p1.Start()
+	assert.Nil(b, err)
+	err = p2.Start()
+	assert.Nil(b, err)
+
+	err = p1.Connect(addr2)
+	assert.Nil(b, err)
+	err = p2.Connect(addr1)
+	assert.Nil(b, err)
+
+	msg := []byte("hello world")
+	ack := []byte("ack")
+	p2.SetMessageHandler(func(s Stream, data []byte) {
+		assert.Equal(b, msg, data)
+		err := s.AsyncSend(ack)
+		assert.Nil(b, err)
+		p2.ReleaseStream(s)
+	})
+
+	b.ResetTimer()
+	for i:=0;i<b.N;i++{
+		s, err := p1.GetStream(p2.PeerID(), true)
+		assert.Nil(b, err)
+		defer p1.ReleaseStream(s)
+		err = s.AsyncSend(msg)
+		assert.Nil(b, err)
+		rawMsg, err := s.Read(2 * time.Second)
+		assert.Nil(b, err)
+		assert.Equal(b, ack, rawMsg)
+	}
+}
+
+func BenchmarkSendWithStreamNonReusable(b *testing.B){
+	p1, addr1 := generateBMNetwork(b, 6007)
+	p2, addr2 := generateBMNetwork(b, 6008)
+
+	err := p1.Start()
+	assert.Nil(b, err)
+	err = p2.Start()
+	assert.Nil(b, err)
+
+	err = p1.Connect(addr2)
+	assert.Nil(b, err)
+	err = p2.Connect(addr1)
+	assert.Nil(b, err)
+
+	msg := []byte("hello world")
+	ack := []byte("ack")
+	p2.SetMessageHandler(func(s Stream, data []byte) {
+		assert.Equal(b, msg, data)
+		err := s.AsyncSend(ack)
+		assert.Nil(b, err)
+		p2.ReleaseStream(s)
+	})
+
+	b.ResetTimer()
+	for i:=0;i<b.N;i++{
+		s, err := p1.GetStream(p2.PeerID(), false)
+		assert.Nil(b, err)
+		defer p1.ReleaseStream(s)
+		err = s.AsyncSend(msg)
+		assert.Nil(b, err)
+		rawMsg, err := s.Read(2 * time.Second)
+		assert.Nil(b, err)
+		assert.Equal(b, ack, rawMsg)
+	}
 }

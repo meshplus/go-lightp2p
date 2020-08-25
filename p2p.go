@@ -337,7 +337,6 @@ func (p2p *P2P) ReleaseStream(s Stream) {
 	}
 
 	if stream.getProtocolID() == p2p.config.protocolIDs[nonReusableProtocolIndex] {
-		p2p.logger.Info("stream close")
 		stream.close()
 		return
 	}
