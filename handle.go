@@ -70,7 +70,6 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 	}
 
 	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
-	p2p.logger.Info("handleNewStream non reusable ...")
 
 	p2p.handleMessage(newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex], DirInbound), reader)
 }
