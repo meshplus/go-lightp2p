@@ -6,6 +6,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/ipfs/go-cid v0.0.5
 	github.com/libp2p/go-libp2p v0.9.2
+	github.com/libp2p/go-libp2p-connmgr v0.2.3
 	github.com/libp2p/go-libp2p-core v0.5.6
 	github.com/libp2p/go-libp2p-crypto v0.1.0
 	github.com/libp2p/go-libp2p-kad-dht v0.8.2

@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -9,12 +10,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type connMgr struct {
+	enabled bool
+	lo      int
+	hi      int
+	grace   time.Duration
+}
+
 type Config struct {
 	localAddr   string
 	privKey     crypto.PrivKey
 	protocolIDs []protocol.ID
 	logger      logrus.FieldLogger
 	bootstrap   []string
+	connMgr     *connMgr
 }
 
 type Option func(*Config)
@@ -43,6 +52,23 @@ func WithProtocolIDs(ids []string) Option {
 func WithBootstrap(peers []string) Option {
 	return func(config *Config) {
 		config.bootstrap = peers
+	}
+}
+
+// * enable is the enable signal of the connection manager module.
+// * lo and hi are watermarks governing the number of connections that'll be maintained.
+//   When the peer count exceeds the 'high watermark', as many peers will be pruned (and
+//   their connections terminated) until 'low watermark' peers remain.
+// * grace is the amount of time a newly opened connection is given before it becomes
+//   subject to pruning.
+func WithConnMgr(enable bool, lo int, hi int, grace time.Duration) Option {
+	return func(config *Config) {
+		config.connMgr = &connMgr{
+			enabled: enable,
+			lo:      lo,
+			hi:      hi,
+			grace:   grace,
+		}
 	}
 }
 
