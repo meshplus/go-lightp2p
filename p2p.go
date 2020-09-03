@@ -18,6 +18,7 @@ import (
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
+	libp2ptls "github.com/libp2p/go-libp2p-tls"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -59,6 +60,7 @@ func New(opts ...Option) (*P2P, error) {
 		libp2p.Identity(conf.privKey),
 		libp2p.ListenAddrStrings(conf.localAddr),
 		libp2p.ConnectionManager(newConnManager(conf.connMgr)),
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 	)
 
 
