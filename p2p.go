@@ -49,20 +49,24 @@ type P2P struct {
 	cancel context.CancelFunc
 }
 
-func New(opts ...Option) (*P2P, error) {
-	conf, err := generateConfig(opts...)
+func New(options ...Option) (*P2P, error) {
+	conf, err := generateConfig(options...)
 	if err != nil {
 		return nil, fmt.Errorf("generate config: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	h, err := libp2p.New(ctx,
+	opts := []libp2p.Option{
 		libp2p.Identity(conf.privKey),
 		libp2p.ListenAddrStrings(conf.localAddr),
-		libp2p.ConnectionManager(newConnManager(conf.connMgr)),
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
-	)
+	}
 
+	if conf.connMgr != nil && conf.connMgr.enabled {
+		opts = append(opts, libp2p.ConnectionManager(newConnManager(conf.connMgr)))
+	}
+
+	h, err := libp2p.New(ctx, opts...)
 
 	if err != nil {
 		cancel()
