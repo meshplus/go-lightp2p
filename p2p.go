@@ -336,13 +336,9 @@ func (p2p *P2P) LocalAddr() string {
 	return p2p.config.localAddr
 }
 
-func (p2p *P2P) GetStream(peerID string, reusable bool) (Stream, error) {
+func (p2p *P2P) GetStream(peerID string) (Stream, error) {
 	if _, err := p2p.FindPeer(peerID); err != nil {
 		return nil, errors.Wrap(err, "failed on find peer")
-	}
-
-	if reusable {
-		return p2p.streamMng.get(peerID)
 	}
 
 	pid, err := peer.Decode(peerID)

@@ -28,8 +28,8 @@ type Stream interface {
 }
 
 type StreamHandler interface {
-	// get peer new stream true:reusable stream false:non reusable stream
-	GetStream(string, bool) (Stream, error)
+	// opens a new stream to given peer.
+	GetStream(peerID string) (Stream, error)
 
 	// release stream
 	ReleaseStream(Stream)

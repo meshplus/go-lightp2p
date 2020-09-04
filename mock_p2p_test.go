@@ -82,7 +82,7 @@ func TestMockP2P_AsyncSendWithStream(t *testing.T) {
 		}
 	})
 
-	stream, err := peer2.GetStream(peer1.PeerID(), false)
+	stream, err := peer2.GetStream(peer1.PeerID())
 	assert.Nil(t, err)
 
 	reqMsg := []byte("test")
@@ -175,7 +175,7 @@ func TestMockP2P_ParallelSend(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(receiveNum)
 	send := func(p *MockP2P) {
-		stream, err := sender.GetStream(p.PeerID(), false)
+		stream, err := sender.GetStream(p.PeerID())
 		assert.Nil(t, err)
 
 		reqMsg := []byte("test")
@@ -234,7 +234,7 @@ func TestMockP2P_ParallelReceive(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(senderNum)
 	send := func(p *MockP2P) {
-		stream, err := p.GetStream(receiver.PeerID(), false)
+		stream, err := p.GetStream(receiver.PeerID())
 		assert.Nil(t, err)
 
 		reqMsg := []byte("test")
