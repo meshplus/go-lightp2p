@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-connmgr"
 	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -18,6 +18,7 @@ import (
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
+	libp2ptls "github.com/libp2p/go-libp2p-tls"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -48,17 +49,25 @@ type P2P struct {
 	cancel context.CancelFunc
 }
 
-func New(opts ...Option) (*P2P, error) {
-	conf, err := generateConfig(opts...)
+func New(options ...Option) (*P2P, error) {
+	conf, err := generateConfig(options...)
 	if err != nil {
 		return nil, fmt.Errorf("generate config: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	h, err := libp2p.New(ctx,
+	opts := []libp2p.Option{
 		libp2p.Identity(conf.privKey),
-		libp2p.ListenAddrStrings(conf.localAddr))
+		libp2p.ListenAddrStrings(conf.localAddr),
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+	}
+
+	if conf.connMgr != nil && conf.connMgr.enabled {
+		opts = append(opts, libp2p.ConnectionManager(newConnManager(conf.connMgr)))
+	}
+
+	h, err := libp2p.New(ctx, opts...)
+
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create p2p host")
@@ -96,6 +105,14 @@ func New(opts ...Option) (*P2P, error) {
 	}
 
 	return p2p, nil
+}
+
+func newConnManager(cfg *connMgr) *connmgr.BasicConnMgr {
+	if cfg == nil || !cfg.enabled {
+		return nil
+	}
+
+	return connmgr.NewConnManager(cfg.lo, cfg.hi, cfg.grace)
 }
 
 // Start start the network service.
@@ -211,6 +228,10 @@ func (p2p *P2P) SetMessageHandler(handler MessageHandler) {
 
 // AsyncSend message to peer with specific id.
 func (p2p *P2P) AsyncSend(peerID string, msg []byte) error {
+	if _, err := p2p.FindPeer(peerID); err != nil {
+		return errors.Wrap(err, "failed on find peer")
+	}
+
 	s, err := p2p.streamMng.get(peerID)
 	if err != nil {
 		return errors.Wrap(err, "failed on get stream")
@@ -228,6 +249,10 @@ func (p2p *P2P) AsyncSendWithStream(s Stream, msg []byte) error {
 }
 
 func (p2p *P2P) Send(peerID string, msg []byte) ([]byte, error) {
+	if _, err := p2p.FindPeer(peerID); err != nil {
+		return nil, errors.Wrap(err, "failed on find peer")
+	}
+
 	s, err := p2p.streamMng.get(peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on get stream")
@@ -312,6 +337,10 @@ func (p2p *P2P) LocalAddr() string {
 }
 
 func (p2p *P2P) GetStream(peerID string, reusable bool) (Stream, error) {
+	if _, err := p2p.FindPeer(peerID); err != nil {
+		return nil, errors.Wrap(err, "failed on find peer")
+	}
+
 	if reusable {
 		return p2p.streamMng.get(peerID)
 	}
