@@ -141,10 +141,7 @@ func TestP2P_MultiStreamSendWithStream(t *testing.T) {
 
 	send := func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		s, err := p1.GetStream(p2.PeerID(), true)
-		assert.Nil(t, err)
-		defer p1.ReleaseStream(s)
-		resp, err := s.Send(msg)
+		resp, err := p1.Send(p2.PeerID(), msg)
 		assert.Nil(t, err)
 		assert.EqualValues(t, resp, ack)
 	}
@@ -180,10 +177,7 @@ func TestP2P_MultiStreamSendWithAsyncStream(t *testing.T) {
 
 	send := func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		s, err := p1.GetStream(p2.PeerID(), true)
-		assert.Nil(t, err)
-		defer p1.ReleaseStream(s)
-		err = s.AsyncSend(msg)
+		err = p1.AsyncSend(p2.PeerID(), msg)
 		assert.Nil(t, err)
 	}
 
@@ -258,7 +252,7 @@ func TestSendWithNonReusableStream(t *testing.T) {
 	err = p2.Connect(addr1)
 	assert.Nil(t, err)
 
-	s, err := p1.GetStream(p2.PeerID(), false)
+	s, err := p1.GetStream(p2.PeerID())
 	assert.Nil(t, err)
 	defer p1.ReleaseStream(s)
 	err = s.AsyncSend(msg)
@@ -299,12 +293,7 @@ func TestSendWithReusableStream(t *testing.T) {
 	err = p2.Connect(addr1)
 	assert.Nil(t, err)
 
-	s, err := p1.GetStream(p2.PeerID(), true)
-	assert.Nil(t, err)
-	defer p1.ReleaseStream(s)
-	err = s.AsyncSend(msg)
-	assert.Nil(t, err)
-	rawMsg, err := s.Read(2 * time.Second)
+	rawMsg, err := p1.Send(p2.PeerID(), msg)
 	assert.Nil(t, err)
 	assert.Equal(t, ack, rawMsg)
 }
@@ -422,6 +411,64 @@ func TestP2P_FindPeer(t *testing.T) {
 	require.Equal(t, s3.String(), findPeer5.String())
 }
 
+func TestP2P_ConnMgr(t *testing.T) {
+	bootstrap1, bsAddr1 := generateNetwork(t, 6007)
+	bootstrap2, bsAddr2 := generateNetwork(t, 6008)
+	bootstrap3, bsAddr3 := generateNetwork(t, 6011)
+
+	err := bootstrap1.Start()
+	require.Nil(t, err)
+	err = bootstrap2.Start()
+	require.Nil(t, err)
+	err = bootstrap3.Start()
+	require.Nil(t, err)
+
+	err = bootstrap1.Connect(bsAddr2)
+	require.Nil(t, err)
+
+	err = bootstrap2.Connect(bsAddr3)
+	require.Nil(t, err)
+
+	addrs1, err := peer.AddrInfoToP2pAddrs(&bsAddr1)
+	require.Nil(t, err)
+	addrs2, err := peer.AddrInfoToP2pAddrs(&bsAddr2)
+	require.Nil(t, err)
+	msg := []byte("hello")
+
+	ch := make(chan struct{})
+
+	var bs1 = []string{addrs1[0].String()}
+	var bs2 = []string{addrs2[0].String()}
+	dht1, s1, id1 := generateNetworkWithDHT(t, 6009, bs1)
+	dht2, s2, id2 := generateNetworkWithDHT(t, 6010, bs2)
+	fmt.Println(s1, id1)
+	fmt.Println(s2, id2)
+	dht2.SetMessageHandler(func(s Stream, data []byte) {
+		fmt.Println("receive:", string(data))
+		assert.EqualValues(t, msg, data)
+		close(ch)
+	})
+
+	err = dht1.Start()
+	require.Nil(t, err)
+	err = dht2.Start()
+	require.Nil(t, err)
+	time.Sleep(1 * time.Second)
+
+	err = dht1.AsyncSend(id2.String(), msg)
+	assert.Nil(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	select {
+	case <-ch:
+		return
+	case <-ctx.Done():
+		assert.Error(t, fmt.Errorf("timeout"))
+		return
+	}
+}
+
 func generateNetwork(t *testing.T, port int) (Network, peer.AddrInfo) {
 	privKey, pubKey, err := crypto.GenerateECDSAKeyPair(rand.Reader)
 	assert.Nil(t, err)
@@ -434,7 +481,9 @@ func generateNetwork(t *testing.T, port int) (Network, peer.AddrInfo) {
 		WithLocalAddr(addr),
 		WithPrivateKey(privKey),
 		WithProtocolIDs([]string{protocolID1, protocolID2}),
+		WithConnMgr(true, 10, 100, 20*time.Second),
 	)
+
 	assert.Nil(t, err)
 
 	multiaddr, err := ma.NewMultiaddr(maddr)
@@ -457,6 +506,7 @@ func generateBMNetwork(b *testing.B, port int) (Network, peer.AddrInfo) {
 		WithLocalAddr(addr),
 		WithPrivateKey(privKey),
 		WithProtocolIDs([]string{protocolID1, protocolID2}),
+		WithConnMgr(true, 10, 100, 20*time.Second),
 	)
 	assert.Nil(b, err)
 
@@ -481,6 +531,7 @@ func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network
 		WithPrivateKey(privKey),
 		WithBootstrap(bootstrap),
 		WithProtocolIDs([]string{protocolID1, protocolID2}),
+		WithConnMgr(true, 10, 100, 20*time.Second),
 	)
 	assert.Nil(t, err)
 
@@ -488,11 +539,10 @@ func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network
 	require.Nil(t, err)
 	addrInfo, err := peer.AddrInfoFromP2pAddr(multiaddr)
 	require.Nil(t, err)
-
 	return p2p, addrInfo, pid1
 }
 
-func BenchmarkSendWithStreamReusable(b *testing.B){
+func BenchmarkSendWithStreamReusable(b *testing.B) {
 	p1, addr1 := generateBMNetwork(b, 6007)
 	p2, addr2 := generateBMNetwork(b, 6008)
 
@@ -516,19 +566,14 @@ func BenchmarkSendWithStreamReusable(b *testing.B){
 	})
 
 	b.ResetTimer()
-	for i:=0;i<b.N;i++{
-		s, err := p1.GetStream(p2.PeerID(), true)
-		assert.Nil(b, err)
-		defer p1.ReleaseStream(s)
-		err = s.AsyncSend(msg)
-		assert.Nil(b, err)
-		rawMsg, err := s.Read(2 * time.Second)
+	for i := 0; i < b.N; i++ {
+		rawMsg, err := p1.Send(p2.PeerID(), msg)
 		assert.Nil(b, err)
 		assert.Equal(b, ack, rawMsg)
 	}
 }
 
-func BenchmarkSendWithStreamNonReusable(b *testing.B){
+func BenchmarkSendWithStreamNonReusable(b *testing.B) {
 	p1, addr1 := generateBMNetwork(b, 6007)
 	p2, addr2 := generateBMNetwork(b, 6008)
 
@@ -552,8 +597,8 @@ func BenchmarkSendWithStreamNonReusable(b *testing.B){
 	})
 
 	b.ResetTimer()
-	for i:=0;i<b.N;i++{
-		s, err := p1.GetStream(p2.PeerID(), false)
+	for i := 0; i < b.N; i++ {
+		s, err := p1.GetStream(p2.PeerID())
 		assert.Nil(b, err)
 		defer p1.ReleaseStream(s)
 		err = s.AsyncSend(msg)

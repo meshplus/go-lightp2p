@@ -269,14 +269,12 @@ func (m *MockP2P) Broadcast(peerIDs []string, msg []byte) error {
 	return nil
 }
 
-func (m *MockP2P) GetStream(peerID string, reusable bool) (Stream, error) {
+func (m *MockP2P) GetStream(peerID string) (Stream, error) {
 	_, exist := m.host.connects[peerID]
 	if !exist {
 		return nil, ErrPeerNotExist
 	}
-	if reusable {
-		return nil, errors.New("not support reusable stream")
-	}
+
 	sendCh := make(chan *mockMsg)
 	receiveCh := make(chan *mockMsg)
 	stream := &mockStream{

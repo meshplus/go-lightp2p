@@ -50,7 +50,6 @@ func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 				if err := stream.reset(); err != nil {
 					p2p.logger.WithField("error", err).Error("Reset stream")
 				}
-
 			}
 
 			return
