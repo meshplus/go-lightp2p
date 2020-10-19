@@ -5,6 +5,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
+	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -41,6 +42,8 @@ type Network interface {
 	PeerHandler
 
 	DHTHandler
+
+	PubsubHandler
 
 	// Start start the network service.
 	Start() error
@@ -113,4 +116,13 @@ type DHTHandler interface {
 	// passed, it also announces it, otherwise it is just kept in the local
 	// accounting of which objects are being provided.
 	Provider(string, bool) error
+}
+
+type PubsubHandler interface {
+
+	// publish local peer info and heart-beat to audit-topic
+	Ping() error
+
+	// subscribe to audit-topic and continually read messages sent by other peers
+	LoopReadPing(queue chan<- *network_pb.Ping)
 }

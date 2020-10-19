@@ -17,6 +17,13 @@ type connMgr struct {
 	grace   time.Duration
 }
 
+type psMgr struct {
+	enablePub bool
+	enableSub bool
+	pubTopic  string
+	subTopic  string
+}
+
 type Config struct {
 	localAddr   string
 	privKey     crypto.PrivKey
@@ -24,6 +31,7 @@ type Config struct {
 	logger      logrus.FieldLogger
 	bootstrap   []string
 	connMgr     *connMgr
+	psMgr       psMgr
 }
 
 type Option func(*Config)
@@ -68,6 +76,42 @@ func WithConnMgr(enable bool, lo int, hi int, grace time.Duration) Option {
 			lo:      lo,
 			hi:      hi,
 			grace:   grace,
+		}
+	}
+}
+
+// * enable indicates whether current peer wants to use pubsub.
+//   If enable is false, then this function is no-op.
+//   If enable is true, then libp2p will initialize a GossipPubSub instance,
+//   and ensure current peer will join in this topic.
+//   After that, peer can publish messages to this topic.
+// * topicID is topic name.
+func WithPublish(enable bool, topicID string) Option {
+	if enable {
+		return func(config *Config) {
+			config.psMgr.pubTopic = topicID
+			config.psMgr.enablePub = true
+		}
+	} else {
+		return func(config *Config) {
+		}
+	}
+}
+
+// * enable indicates whether current peer wants to use pubsub.
+//   If enable is false, then this function is no-op.
+//   If enable is true, then libp2p will initialize a GossipPubSub instance,
+//   and ensure current peer will subscribe to this topic.
+//   After that, peer can receive messages from other peers that published to the same topic.
+// * topicID is topic name.
+func WithSubscribe(enable bool, topicID string) Option {
+	if enable {
+		return func(config *Config) {
+			config.psMgr.subTopic = topicID
+			config.psMgr.enableSub = true
+		}
+	} else {
+		return func(config *Config) {
 		}
 	}
 }

@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	network_pb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -44,6 +46,7 @@ type P2P struct {
 	messageHandler  MessageHandler
 	logger          logrus.FieldLogger
 	Routing         routing.Routing
+	psMng           *pubsubMgr
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -94,6 +97,13 @@ func New(options ...Option) (*P2P, error) {
 		return nil, errors.Wrap(err, "failed on create dht")
 	}
 
+	psMng, err := initializePubSub(ctx, h, conf)
+	if err != nil {
+		// Do NOT return error, make sure that even initializing pubsub fail will not block other functions,
+		// because pubsub is only used for audit in current version
+		conf.logger.Errorf("initialize pubsub fail: %v\n", err)
+	}
+
 	p2p := &P2P{
 		config:    conf,
 		host:      h,
@@ -102,6 +112,7 @@ func New(options ...Option) (*P2P, error) {
 		Routing:   routing,
 		ctx:       ctx,
 		cancel:    cancel,
+		psMng:     psMng,
 	}
 
 	return p2p, nil
@@ -434,4 +445,48 @@ func (p2p *P2P) FindProvidersAsync(peerID string, i int) (<-chan peer.AddrInfo, 
 	}
 	peerInfoC := p2p.Routing.FindProvidersAsync(p2p.ctx, ccid, i)
 	return peerInfoC, nil
+}
+
+func (p2p *P2P) Ping() error {
+	defer func() {
+		if r := recover(); r != nil {
+			p2p.logger.Error("ping panic: ", r)
+		}
+	}()
+
+	d, err := json.Marshal(network_pb.Ping{
+		PeerID: p2p.host.ID().String(),
+		Time:   time.Now().Unix(),
+	})
+	if err != nil {
+		return err
+	}
+	return p2p.psMng.pubTopic.Publish(p2p.ctx, d)
+}
+
+func (p2p *P2P) LoopReadPing(queue chan<- *network_pb.Ping) {
+	defer func() {
+		if err := recover(); err != nil {
+			p2p.logger.Error("loop read ping panic: ", err)
+		}
+	}()
+
+	for {
+		msg, err := p2p.psMng.sub.Next(p2p.ctx)
+		if err != nil {
+			p2p.logger.Error("failed on get sub message")
+			continue
+		}
+		ret := new(network_pb.Ping)
+		err = json.Unmarshal(msg.Data, ret)
+		if err != nil {
+			p2p.logger.Error("failed on unmashal sub message")
+			continue
+		}
+		// only forward messages delivered by others
+		if msg.ReceivedFrom == p2p.host.ID() {
+			continue
+		}
+		queue <- ret
+	}
 }

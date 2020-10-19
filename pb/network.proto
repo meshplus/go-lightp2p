@@ -3,5 +3,10 @@ syntax = "proto3";
 package network.pb;
 
 message Message {
-    bytes data = 1;
+  bytes data = 1;
+}
+
+message Ping {
+  string peerID = 1;
+  int64 time = 2;
 }
