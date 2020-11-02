@@ -1,6 +1,7 @@
 package network
 
 import (
+	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -62,6 +63,9 @@ type Network interface {
 
 	// AsyncSend sends message to peer with peer id.
 	AsyncSend(string, []byte) error
+
+	// Ping pings target peer.
+	Ping(peerID string) (<-chan ping.Result, error)
 
 	// Send sends message to peer with peer id waiting response
 	Send(string, []byte) ([]byte, error)
