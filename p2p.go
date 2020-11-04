@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"sync"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
-	libp2ptls "github.com/libp2p/go-libp2p-tls"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -45,6 +45,7 @@ type P2P struct {
 	logger          logrus.FieldLogger
 	Routing         routing.Routing
 
+	pingServer *ping.PingService
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -59,7 +60,7 @@ func New(options ...Option) (*P2P, error) {
 	opts := []libp2p.Option{
 		libp2p.Identity(conf.privKey),
 		libp2p.ListenAddrStrings(conf.localAddr),
-		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+		//libp2p.Security(libp2ptls.ID, libp2ptls.New),
 	}
 
 	if conf.connMgr != nil && conf.connMgr.enabled {
@@ -67,6 +68,7 @@ func New(options ...Option) (*P2P, error) {
 	}
 
 	h, err := libp2p.New(ctx, opts...)
+	pingServer := ping.NewPingService(h)
 
 	if err != nil {
 		cancel()
@@ -100,6 +102,7 @@ func New(options ...Option) (*P2P, error) {
 		streamMng: newStreamMng(ctx, h, conf.protocolIDs[reusableProtocolIndex], conf.logger),
 		logger:    conf.logger,
 		Routing:   routing,
+		pingServer: pingServer,
 		ctx:       ctx,
 		cancel:    cancel,
 	}
@@ -113,6 +116,16 @@ func newConnManager(cfg *connMgr) *connmgr.BasicConnMgr {
 	}
 
 	return connmgr.NewConnManager(cfg.lo, cfg.hi, cfg.grace)
+}
+
+func (p2p *P2P) Ping(peerID string) (<-chan ping.Result, error) {
+	peerInfo, err := p2p.FindPeer(peerID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed on find peer")
+	}
+
+	ch := p2p.pingServer.Ping(p2p.ctx, peerInfo.ID)
+	return ch, nil
 }
 
 // Start start the network service.
