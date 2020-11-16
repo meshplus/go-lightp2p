@@ -30,8 +30,8 @@ var _ Network = (*P2P)(nil)
 
 var (
 	connectTimeout           = 10 * time.Second
-	sendTimeout              = 5 * time.Second
-	waitTimeout              = 5 * time.Second
+	sendTimeout              = 2 * time.Second
+	waitTimeout              = 2 * time.Second
 	reusableProtocolIndex    = 0
 	nonReusableProtocolIndex = 1
 )
@@ -46,8 +46,8 @@ type P2P struct {
 	Routing         routing.Routing
 
 	pingServer *ping.PingService
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 func New(options ...Option) (*P2P, error) {
@@ -97,14 +97,14 @@ func New(options ...Option) (*P2P, error) {
 	}
 
 	p2p := &P2P{
-		config:    conf,
-		host:      h,
-		streamMng: newStreamMng(ctx, h, conf.protocolIDs[reusableProtocolIndex], conf.logger),
-		logger:    conf.logger,
-		Routing:   routing,
+		config:     conf,
+		host:       h,
+		streamMng:  newStreamMng(ctx, h, conf.protocolIDs[reusableProtocolIndex], conf.logger),
+		logger:     conf.logger,
+		Routing:    routing,
 		pingServer: pingServer,
-		ctx:       ctx,
-		cancel:    cancel,
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 
 	return p2p, nil
@@ -286,15 +286,15 @@ func (p2p *P2P) Send(peerID string, msg []byte) ([]byte, error) {
 
 func (p2p *P2P) Broadcast(ids []string, msg []byte) error {
 	for _, id := range ids {
-		if err := p2p.AsyncSend(id, msg); err != nil {
-			p2p.logger.WithFields(logrus.Fields{
-				"error": err,
-				"id":    id,
-			}).Error("Async Send message")
-			continue
-		}
+		go func(id string) {
+			if err := p2p.AsyncSend(id, msg); err != nil {
+				p2p.logger.WithFields(logrus.Fields{
+					"error": err,
+					"id":    id,
+				}).Error("Async Send message")
+			}
+		}(id)
 	}
-
 	return nil
 }
 
@@ -425,7 +425,8 @@ func (p2p *P2P) FindPeer(peerID string) (peer.AddrInfo, error) {
 	if err != nil {
 		return peer.AddrInfo{}, fmt.Errorf("failed on decode peer id:%v", err)
 	}
-	return p2p.Routing.FindPeer(p2p.ctx, id)
+	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	return p2p.Routing.FindPeer(ctx, id)
 }
 
 func (p2p *P2P) Provider(peerID string, passed bool) error {
