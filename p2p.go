@@ -68,12 +68,12 @@ func New(options ...Option) (*P2P, error) {
 	}
 
 	h, err := libp2p.New(ctx, opts...)
-	pingServer := ping.NewPingService(h)
-
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create p2p host")
 	}
+
+	pingServer := ping.NewPingService(h)
 
 	addrInfos := make([]peer.AddrInfo, 0, len(conf.bootstrap))
 	for i, pAddr := range conf.bootstrap {
