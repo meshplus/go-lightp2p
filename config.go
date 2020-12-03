@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/meshplus/bitxhub-kit/log"
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,7 @@ type Config struct {
 	logger      logrus.FieldLogger
 	bootstrap   []string
 	connMgr     *connMgr
+	notify      network.Notifiee
 }
 
 type Option func(*Config)
@@ -52,6 +54,12 @@ func WithProtocolIDs(ids []string) Option {
 func WithBootstrap(peers []string) Option {
 	return func(config *Config) {
 		config.bootstrap = peers
+	}
+}
+
+func WithNotify(notify network.Notifiee) Option {
+	return func(config *Config) {
+		config.notify = notify
 	}
 }
 
