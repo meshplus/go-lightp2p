@@ -96,6 +96,10 @@ func New(options ...Option) (*P2P, error) {
 		return nil, errors.Wrap(err, "failed on create dht")
 	}
 
+	if conf.notify != nil {
+		h.Network().Notify(conf.notify)
+	}
+
 	p2p := &P2P{
 		config:     conf,
 		host:       h,

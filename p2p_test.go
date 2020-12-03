@@ -53,6 +53,17 @@ func TestP2P_MultiStreamSend(t *testing.T) {
 		err := s.AsyncSend(ack)
 		assert.Nil(t, err)
 	})
+	
+	p1.SetConnectCallback(func(s string) error {
+
+			fmt.Println("p1: "+s)
+			return nil
+	})
+
+	//p2.SetConnectCallback(func(s string) error {
+	//	fmt.Println("p2: "+s)
+	//	return nil
+	//})
 
 	err := p1.Start()
 	assert.Nil(t, err)
@@ -63,7 +74,7 @@ func TestP2P_MultiStreamSend(t *testing.T) {
 	assert.Nil(t, err)
 	err = p2.Connect(addr1)
 	assert.Nil(t, err)
-	testStreamNum := 100
+	testStreamNum := 1
 	var wg sync.WaitGroup
 
 	send := func(wg *sync.WaitGroup) {
