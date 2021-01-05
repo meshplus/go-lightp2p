@@ -122,13 +122,13 @@ func newConnManager(cfg *connMgr) *connmgr.BasicConnMgr {
 	return connmgr.NewConnManager(cfg.lo, cfg.hi, cfg.grace)
 }
 
-func (p2p *P2P) Ping(peerID string) (<-chan ping.Result, error) {
+func (p2p *P2P) Ping(ctx context.Context, peerID string) (<-chan ping.Result, error) {
 	peerInfo, err := p2p.FindPeer(peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on find peer")
 	}
 
-	ch := p2p.pingServer.Ping(p2p.ctx, peerInfo.ID)
+	ch := p2p.pingServer.Ping(ctx, peerInfo.ID)
 	return ch, nil
 }
 
