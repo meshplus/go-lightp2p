@@ -7,6 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p-core/sec"
 	"github.com/meshplus/bitxhub-kit/log"
 	"github.com/sirupsen/logrus"
 )
@@ -26,9 +27,23 @@ type Config struct {
 	bootstrap   []string
 	connMgr     *connMgr
 	notify      network.Notifiee
+	transport   sec.SecureTransport
+	transportID string
 }
 
 type Option func(*Config)
+
+func WithTransportId(tid string) Option {
+	return func(config *Config) {
+		config.transportID = tid
+	}
+}
+
+func WithTransport(tpt sec.SecureTransport) Option {
+	return func(config *Config) {
+		config.transport = tpt
+	}
+}
 
 func WithPrivateKey(privKey crypto.PrivKey) Option {
 	return func(config *Config) {

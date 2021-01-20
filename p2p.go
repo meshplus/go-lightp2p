@@ -3,7 +3,6 @@ package network
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"sync"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
+	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -60,7 +60,10 @@ func New(options ...Option) (*P2P, error) {
 	opts := []libp2p.Option{
 		libp2p.Identity(conf.privKey),
 		libp2p.ListenAddrStrings(conf.localAddr),
-		//libp2p.Security(libp2ptls.ID, libp2ptls.New),
+	}
+
+	if conf.transportID != "" && conf.transport != nil {
+		opts = append(opts, libp2p.Security(conf.transportID, conf.transport))
 	}
 
 	if conf.connMgr != nil && conf.connMgr.enabled {

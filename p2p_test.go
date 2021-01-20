@@ -11,6 +11,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
+	libp2pcert "github.com/meshplus/go-libp2p-cert"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,11 +54,11 @@ func TestP2P_MultiStreamSend(t *testing.T) {
 		err := s.AsyncSend(ack)
 		assert.Nil(t, err)
 	})
-	
+
 	p1.SetConnectCallback(func(s string) error {
 
-			fmt.Println("p1: "+s)
-			return nil
+		fmt.Println("p1: " + s)
+		return nil
 	})
 
 	//p2.SetConnectCallback(func(s string) error {
@@ -488,11 +489,18 @@ func generateNetwork(t *testing.T, port int) (Network, peer.AddrInfo) {
 	assert.Nil(t, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
+	certs, err := libp2pcert.LoadCerts("")
+	assert.Nil(t, err)
+	tpt, err := libp2pcert.New(privKey, certs)
+	//tpt, err := libp2ptls.New(privKey)
+	assert.Nil(t, err)
 	p2p, err := New(
 		WithLocalAddr(addr),
 		WithPrivateKey(privKey),
 		WithProtocolIDs([]string{protocolID1, protocolID2}),
 		WithConnMgr(true, 10, 100, 20*time.Second),
+		WithTransport(tpt),
+		WithTransportId(libp2pcert.ID),
 	)
 
 	assert.Nil(t, err)
@@ -513,11 +521,18 @@ func generateBMNetwork(b *testing.B, port int) (Network, peer.AddrInfo) {
 	assert.Nil(b, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
+	certs, err := libp2pcert.LoadCerts("")
+	assert.Nil(b, err)
+	tpt, err := libp2pcert.New(privKey, certs)
+	//tpt, err := libp2ptls.New(privKey)
+	assert.Nil(b, err)
 	p2p, err := New(
 		WithLocalAddr(addr),
 		WithPrivateKey(privKey),
 		WithProtocolIDs([]string{protocolID1, protocolID2}),
 		WithConnMgr(true, 10, 100, 20*time.Second),
+		WithTransport(tpt),
+		WithTransportId(libp2pcert.ID),
 	)
 	assert.Nil(b, err)
 
@@ -537,12 +552,19 @@ func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network
 	assert.Nil(t, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
+	certs, err := libp2pcert.LoadCerts("")
+	assert.Nil(t, err)
+	tpt, err := libp2pcert.New(privKey, certs)
+	//tpt, err := libp2ptls.New(privKey)
+	assert.Nil(t, err)
 	p2p, err := New(
 		WithLocalAddr(addr),
 		WithPrivateKey(privKey),
 		WithBootstrap(bootstrap),
 		WithProtocolIDs([]string{protocolID1, protocolID2}),
 		WithConnMgr(true, 10, 100, 20*time.Second),
+		WithTransport(tpt),
+		WithTransportId(libp2pcert.ID),
 	)
 	assert.Nil(t, err)
 
