@@ -18,8 +18,12 @@ import (
 )
 
 const (
-	protocolID1 string = "/test/1.0.0" // magic protocol
-	protocolID2 string = "/test/2.0.0" // magic protocol
+	protocolID1      string = "/test/1.0.0" // magic protocol
+	protocolID2      string = "/test/2.0.0" // magic protocol
+	repo_path               = ""
+	node_cert_path   string = "certs/node.cert"
+	agency_cert_path string = "certs/agency.cert"
+	ca_cert_path     string = "certs/ca.cert"
 )
 
 func TestP2P_Connect(t *testing.T) {
@@ -489,7 +493,7 @@ func generateNetwork(t *testing.T, port int) (Network, peer.AddrInfo) {
 	assert.Nil(t, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
-	certs, err := libp2pcert.LoadCerts("")
+	certs, err := libp2pcert.LoadCerts(repo_path, node_cert_path, agency_cert_path, ca_cert_path)
 	assert.Nil(t, err)
 	tpt, err := libp2pcert.New(privKey, certs)
 	//tpt, err := libp2ptls.New(privKey)
@@ -521,7 +525,7 @@ func generateBMNetwork(b *testing.B, port int) (Network, peer.AddrInfo) {
 	assert.Nil(b, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
-	certs, err := libp2pcert.LoadCerts("")
+	certs, err := libp2pcert.LoadCerts(repo_path, node_cert_path, agency_cert_path, ca_cert_path)
 	assert.Nil(b, err)
 	tpt, err := libp2pcert.New(privKey, certs)
 	//tpt, err := libp2ptls.New(privKey)
@@ -552,7 +556,7 @@ func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network
 	assert.Nil(t, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
-	certs, err := libp2pcert.LoadCerts("")
+	certs, err := libp2pcert.LoadCerts(repo_path, node_cert_path, agency_cert_path, ca_cert_path)
 	assert.Nil(t, err)
 	tpt, err := libp2pcert.New(privKey, certs)
 	//tpt, err := libp2ptls.New(privKey)

@@ -371,8 +371,8 @@ github.com/mattn/go-isatty v0.0.8/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hd
 github.com/mattn/go-isatty v0.0.10/go.mod h1:qgIWMr58cqv1PHHyhnkY9lrL7etaEgOFcMEpPG5Rm84=
 github.com/meshplus/bitxhub-kit v1.1.1 h1:vkPO88oA3+Kpc0N8lIgfj/U52KBuI+633hPbMYt1xm8=
 github.com/meshplus/bitxhub-kit v1.1.1/go.mod h1:r4l4iqn0RPJreb/OmoYKfjCjQJrXpZX++6Qc31VG/1k=
-github.com/meshplus/go-libp2p-cert v0.0.0-20210120021632-1578cf63e06a h1:eg1BDjSOsz3cdH49kPE8c2XnIFlLTPEMJLqpofV/OEY=
-github.com/meshplus/go-libp2p-cert v0.0.0-20210120021632-1578cf63e06a/go.mod h1:rS4AYMqKypLn2IPEnHICP//V2v16SZo4CWUbwMdihl0=
+github.com/meshplus/go-libp2p-cert v0.0.0-20210125114242-7d9ed2eaaccd h1:/8ydT0Pc+nFy3uAeTwxAurPXY4cWfggslGz3bNwJKDg=
+github.com/meshplus/go-libp2p-cert v0.0.0-20210125114242-7d9ed2eaaccd/go.mod h1:rS4AYMqKypLn2IPEnHICP//V2v16SZo4CWUbwMdihl0=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/miekg/dns v1.1.12/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/miekg/dns v1.1.28/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
