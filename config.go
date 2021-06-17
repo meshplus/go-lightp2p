@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -27,6 +28,7 @@ type Config struct {
 	bootstrap   []string
 	connMgr     *connMgr
 	notify      network.Notifiee
+	gater       connmgr.ConnectionGater
 	transport   sec.SecureTransport
 	transportID string
 }
@@ -75,6 +77,12 @@ func WithBootstrap(peers []string) Option {
 func WithNotify(notify network.Notifiee) Option {
 	return func(config *Config) {
 		config.notify = notify
+	}
+}
+
+func WithConnectionGater(gater connmgr.ConnectionGater) Option {
+	return func(config *Config) {
+		config.gater = gater
 	}
 }
 

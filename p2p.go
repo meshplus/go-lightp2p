@@ -8,7 +8,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-connmgr"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -60,6 +60,7 @@ func New(options ...Option) (*P2P, error) {
 	opts := []libp2p.Option{
 		libp2p.Identity(conf.privKey),
 		libp2p.ListenAddrStrings(conf.localAddr),
+		libp2p.ConnectionGater(conf.gater),
 	}
 
 	if conf.transportID != "" && conf.transport != nil {
