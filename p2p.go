@@ -29,8 +29,8 @@ var _ Network = (*P2P)(nil)
 
 var (
 	connectTimeout           = 10 * time.Second
-	sendTimeout              = 5 * time.Second
-	waitTimeout              = 5 * time.Second
+	sendTimeout              = 40 * time.Second
+	waitTimeout              = 40 * time.Second
 	reusableProtocolIndex    = 0
 	nonReusableProtocolIndex = 1
 )
