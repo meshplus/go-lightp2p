@@ -14,7 +14,7 @@ import (
 
 var (
 	newStreamTimeout    = 5 * time.Second
-	maxStreamNumPerConn = 16
+	maxStreamNumPerConn = 300
 )
 
 type streamMgr struct {
