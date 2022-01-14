@@ -87,6 +87,7 @@ func (mng *streamMgr) remove(peerID string) {
 
 func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 	pid, err := peer.Decode(peerID)
+	mng.logger.Debugf(">>>>>start new stream:%s", peerID)
 	ctx, cancel := context.WithTimeout(mng.ctx, newStreamTimeout)
 	defer cancel()
 	mng.logger.WithFields(logrus.Fields{"protocol id": mng.protocolID}).Debug("new stream")
@@ -94,7 +95,7 @@ func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on creat new stream")
 	}
-
+	mng.logger.Debugf(">>>>>END new stream:%s", peerID)
 	return newStream(s, mng.protocolID, DirOutbound), nil
 }
 
