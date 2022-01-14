@@ -249,15 +249,17 @@ func (p2p *P2P) SetMessageHandler(handler MessageHandler) {
 
 // AsyncSend message to peer with specific id.
 func (p2p *P2P) AsyncSend(peerID string, msg []byte) error {
+	p2p.logger.Debug("1. start p2p asyncSend")
 	if _, err := p2p.FindPeer(peerID); err != nil {
 		return errors.Wrap(err, "failed on find peer")
 	}
-
+	p2p.logger.Debug("2. start p2p get stream")
 	s, err := p2p.streamMng.get(peerID)
 	if err != nil {
 		return errors.Wrap(err, "failed on get stream")
 	}
 
+	p2p.logger.Debug("3. start p2p send")
 	if err := p2p.send(s, msg); err != nil {
 		return err
 	}
