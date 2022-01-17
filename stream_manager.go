@@ -23,8 +23,7 @@ type streamMgr struct {
 	host       host.Host
 	logger     logrus.FieldLogger
 
-	pools map[string]*Pool
-	sync.RWMutex
+	pools sync.Map
 }
 
 func newStreamMng(ctx context.Context, host host.Host, protocolID protocol.ID, logger logrus.FieldLogger) *streamMgr {
@@ -33,25 +32,22 @@ func newStreamMng(ctx context.Context, host host.Host, protocolID protocol.ID, l
 		protocolID: protocolID,
 		host:       host,
 		logger:     logger,
-		pools:      make(map[string]*Pool),
+		pools:      sync.Map{},
 	}
 }
 
 func (mng *streamMgr) get(peerID string) (*stream, error) {
-	mng.Lock()
-	defer mng.Unlock()
-
-	_, ok := mng.pools[peerID]
+	_, ok := mng.pools.Load(peerID)
 	if !ok {
 		pool, err := newPool(mng.newStream, mng.logger, maxStreamNumPerConn)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed on create new pool")
 		}
 
-		mng.pools[peerID] = pool
+		mng.pools.Store(peerID, pool)
 	}
-
-	s, err := mng.pools[peerID].Acquire(peerID)
+	pool, _ := mng.pools.Load(peerID)
+	s, err := pool.(*Pool).Acquire(peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on acquire stream")
 	}
@@ -61,28 +57,24 @@ func (mng *streamMgr) get(peerID string) (*stream, error) {
 
 func (mng *streamMgr) release(stream *stream) {
 	peerID := stream.RemotePeerID()
-	mng.Lock()
-	defer mng.Unlock()
 
-	pool, ok := mng.pools[peerID]
+	pool, ok := mng.pools.Load(peerID)
 	if !ok {
 		mng.logger.WithFields(logrus.Fields{"peer id": peerID, "err": "failed on get pool"}).Warn("failed on release stream")
 		return
 	}
 
-	pool.Release(stream)
+	pool.(*Pool).Release(stream)
 }
 
 func (mng *streamMgr) remove(peerID string) {
-	mng.Lock()
-	defer mng.Unlock()
-	pool, ok := mng.pools[peerID]
+	pool, ok := mng.pools.Load(peerID)
 	if !ok {
 		return
 	}
 
-	pool.Close()
-	delete(mng.pools, peerID)
+	pool.(*Pool).Close()
+	mng.pools.Delete(peerID)
 }
 
 func (mng *streamMgr) newStream(peerID string) (*stream, error) {
@@ -100,10 +92,9 @@ func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 }
 
 func (mng *streamMgr) stop() {
-	mng.Lock()
-	defer mng.Unlock()
-
-	for _, pool := range mng.pools {
+	mng.pools.Range(func(key, value interface{}) bool {
+		pool := value.(*Pool)
 		pool.Close()
-	}
+		return true
+	})
 }
