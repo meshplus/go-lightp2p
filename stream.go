@@ -26,7 +26,7 @@ type stream struct {
 	direction Direction
 	stream    network.Stream
 	pid       protocol.ID
-	valid   bool
+	valid     bool
 }
 
 func newStream(s network.Stream, pid protocol.ID, dir Direction) *stream {
@@ -34,7 +34,7 @@ func newStream(s network.Stream, pid protocol.ID, dir Direction) *stream {
 		direction: dir,
 		stream:    s,
 		pid:       pid,
-		valid:   true,
+		valid:     true,
 	}
 }
 

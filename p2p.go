@@ -283,12 +283,11 @@ func (p2p *P2P) Send(peerID string, msg []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
-	defer p2p.streamMng.release(s)
 	recvMsg, err := waitMsg(s.stream, waitTimeout)
 	if err != nil {
 		return nil, err
 	}
-
+	p2p.streamMng.release(s)
 	return recvMsg.Data, nil
 }
 
