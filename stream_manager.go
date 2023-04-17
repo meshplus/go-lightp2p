@@ -22,35 +22,32 @@ type streamMgr struct {
 	protocolID protocol.ID
 	host       host.Host
 	logger     logrus.FieldLogger
-
-	pools sync.Map
+	timeout    *timeout
+	pools      sync.Map
 }
 
-func newStreamMng(ctx context.Context, host host.Host, protocolID protocol.ID, logger logrus.FieldLogger) *streamMgr {
+func newStreamMng(ctx context.Context, host host.Host, protocolID protocol.ID, logger logrus.FieldLogger, timeout *timeout) *streamMgr {
 	return &streamMgr{
 		ctx:        ctx,
 		protocolID: protocolID,
 		host:       host,
 		logger:     logger,
+		timeout:    timeout,
 		pools:      sync.Map{},
 	}
 }
 
 func (mng *streamMgr) get(peerID string) (*stream, error) {
-	var (
-		pool interface{}
-		err  error
-	)
-	pool, ok := mng.pools.Load(peerID)
+	loadPool, ok := mng.pools.Load(peerID)
 	if !ok {
-		pool, err = newPool(mng.newStream, mng.logger, maxStreamNumPerConn)
+		pool, err := newPool(mng.newStream, mng.logger, maxStreamNumPerConn)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed on create new pool")
 		}
-
 		mng.pools.Store(peerID, pool)
+		loadPool = pool
 	}
-	s, err := pool.(*Pool).Acquire(peerID)
+	s, err := loadPool.(*pool).acquire(peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on acquire stream")
 	}
@@ -61,27 +58,20 @@ func (mng *streamMgr) get(peerID string) (*stream, error) {
 func (mng *streamMgr) release(stream *stream) {
 	peerID := stream.RemotePeerID()
 
-	pool, ok := mng.pools.Load(peerID)
+	loadPool, ok := mng.pools.Load(peerID)
 	if !ok {
 		mng.logger.WithFields(logrus.Fields{"peer id": peerID, "err": "failed on get pool"}).Warn("failed on release stream")
 		return
 	}
 
-	pool.(*Pool).Release(stream)
-}
-
-func (mng *streamMgr) remove(peerID string) {
-	pool, ok := mng.pools.Load(peerID)
-	if !ok {
-		return
-	}
-
-	pool.(*Pool).Close()
-	mng.pools.Delete(peerID)
+	loadPool.(*pool).release(stream)
 }
 
 func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 	pid, err := peer.Decode(peerID)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(mng.ctx, newStreamTimeout)
 	defer cancel()
 	mng.logger.WithFields(logrus.Fields{"protocol id": mng.protocolID}).Debug("new stream")
@@ -90,13 +80,13 @@ func (mng *streamMgr) newStream(peerID string) (*stream, error) {
 		return nil, errors.Wrap(err, "failed on creat new stream")
 	}
 
-	return newStream(s, mng.protocolID, DirOutbound), nil
+	return newStream(s, mng.protocolID, DirOutbound, mng.timeout), nil
 }
 
 func (mng *streamMgr) stop() {
 	mng.pools.Range(func(key, value interface{}) bool {
-		pool := value.(*Pool)
-		pool.Close()
+		pool := value.(*pool)
+		pool.close()
 		return true
 	})
 }
