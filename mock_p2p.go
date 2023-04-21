@@ -110,7 +110,7 @@ func (s *mockStream) RemotePeerAddr() ma.Multiaddr {
 func (s *mockStream) AsyncSend(msg []byte) error {
 	connect, exist := s.host.connects[s.remotePeer]
 	if !exist {
-		return errors.New(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
+		return fmt.Errorf(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
 	}
 	msgCopy := make([]byte, len(msg))
 	copy(msgCopy, msg)
@@ -139,7 +139,7 @@ func (s *mockStream) AsyncSend(msg []byte) error {
 func (s *mockStream) Send(msg []byte) ([]byte, error) {
 	connect, exist := s.host.connects[s.remotePeer]
 	if !exist {
-		return nil, errors.New(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
+		return nil, fmt.Errorf(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
 	}
 	msgCopy := make([]byte, len(msg))
 	copy(msgCopy, msg)
@@ -169,7 +169,7 @@ func (s *mockStream) Send(msg []byte) ([]byte, error) {
 func (s *mockStream) Read(timeout time.Duration) ([]byte, error) {
 	_, exist := s.host.connects[s.remotePeer]
 	if !exist {
-		return nil, errors.New(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
+		return nil, fmt.Errorf(fmt.Sprintf("remote peer [%s] not exist", s.remotePeer))
 	}
 	select {
 	case res := <-s.receiveCh:
@@ -181,13 +181,11 @@ func (s *mockStream) Read(timeout time.Duration) ([]byte, error) {
 
 func (m *MockP2P) Start() error {
 	go func() {
-		for {
-			select {
-			case msg := <-m.receiveCh:
-				msg.stream.host = m.host
-				go m.messageHandler(msg.stream, msg.data)
-			}
+		for msg := range m.receiveCh {
+			msg.stream.host = m.host
+			go m.messageHandler(msg.stream, msg.data)
 		}
+
 	}()
 	return nil
 }

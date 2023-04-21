@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Pool struct {
+type pool struct {
 	logger    logrus.FieldLogger
 	lock      sync.Mutex
 	resources chan *stream
@@ -15,19 +15,19 @@ type Pool struct {
 	closed    bool
 }
 
-func newPool(fn func(string) (*stream, error), logger logrus.FieldLogger, size int) (*Pool, error) {
+func newPool(fn func(string) (*stream, error), logger logrus.FieldLogger, size int) (*pool, error) {
 	if size <= 0 {
 		return nil, errors.New("pool size too small")
 	}
 
-	return &Pool{
+	return &pool{
 		logger:    logger,
 		resources: make(chan *stream, size),
 		factory:   fn,
 	}, nil
 }
 
-func (p *Pool) Acquire(peerID string) (*stream, error) {
+func (p *pool) acquire(peerID string) (*stream, error) {
 	select {
 	case r, ok := <-p.resources:
 		if !ok {
@@ -39,23 +39,29 @@ func (p *Pool) Acquire(peerID string) (*stream, error) {
 	}
 }
 
-func (p *Pool) Release(s *stream) {
+func (p *pool) release(s *stream) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	if p.closed {
-		s.close()
+		err := s.close()
+		if err != nil {
+			p.logger.Errorf("stream [%s] close err", s.pid)
+		}
 		return
 	}
 
 	select {
 	case p.resources <- s:
 	default:
-		s.close()
+		err := s.close()
+		if err != nil {
+			p.logger.Errorf("stream [%s] close err", s.pid)
+		}
 	}
 }
 
-func (p *Pool) Close() {
+func (p *pool) close() {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -65,7 +71,10 @@ func (p *Pool) Close() {
 
 	p.closed = true
 	close(p.resources)
-	for r := range p.resources {
-		r.close()
+	for s := range p.resources {
+		err := s.close()
+		if err != nil {
+			p.logger.Errorf("stream [%s] close err", s.pid)
+		}
 	}
 }

@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	protocolID1      string = "/test/1.0.0" // magic protocol
-	protocolID2      string = "/test/2.0.0" // magic protocol
-	repo_path               = ""
-	node_cert_path   string = "certs/node.cert"
-	agency_cert_path string = "certs/agency.cert"
-	ca_cert_path     string = "certs/ca.cert"
+	protocolID1    string = "/test/1.0.0" // magic protocol
+	protocolID2    string = "/test/2.0.0" // magic protocol
+	repoPath       string = ""
+	nodeCertPath   string = "certs/node.cert"
+	agencyCertPath string = "certs/agency.cert"
+	caCertPath     string = "certs/ca.cert"
 )
 
 func TestP2P_Connect(t *testing.T) {
@@ -493,7 +493,7 @@ func generateNetwork(t *testing.T, port int) (Network, peer.AddrInfo) {
 	assert.Nil(t, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
-	certs, err := libp2pcert.LoadCerts(repo_path, node_cert_path, agency_cert_path, ca_cert_path)
+	certs, err := libp2pcert.LoadCerts(repoPath, nodeCertPath, agencyCertPath, caCertPath)
 	assert.Nil(t, err)
 	tpt, err := libp2pcert.New(privKey, certs)
 	//tpt, err := libp2ptls.New(privKey)
@@ -525,7 +525,7 @@ func generateBMNetwork(b *testing.B, port int) (Network, peer.AddrInfo) {
 	assert.Nil(b, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
-	certs, err := libp2pcert.LoadCerts(repo_path, node_cert_path, agency_cert_path, ca_cert_path)
+	certs, err := libp2pcert.LoadCerts(repoPath, nodeCertPath, agencyCertPath, caCertPath)
 	assert.Nil(b, err)
 	tpt, err := libp2pcert.New(privKey, certs)
 	//tpt, err := libp2ptls.New(privKey)
@@ -556,7 +556,7 @@ func generateNetworkWithDHT(t *testing.T, port int, bootstrap []string) (Network
 	assert.Nil(t, err)
 	addr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	maddr := fmt.Sprintf("%s/p2p/%s", addr, pid1)
-	certs, err := libp2pcert.LoadCerts(repo_path, node_cert_path, agency_cert_path, ca_cert_path)
+	certs, err := libp2pcert.LoadCerts(repoPath, nodeCertPath, agencyCertPath, caCertPath)
 	assert.Nil(t, err)
 	tpt, err := libp2pcert.New(privKey, certs)
 	//tpt, err := libp2ptls.New(privKey)
@@ -611,10 +611,16 @@ func BenchmarkSendWithStreamReusable(b *testing.B) {
 }
 
 func BenchmarkSendWithStreamNonReusable(b *testing.B) {
+	var (
+		s      Stream
+		rawMsg []byte
+		err    error
+	)
+
 	p1, addr1 := generateBMNetwork(b, 6007)
 	p2, addr2 := generateBMNetwork(b, 6008)
 
-	err := p1.Start()
+	err = p1.Start()
 	assert.Nil(b, err)
 	err = p2.Start()
 	assert.Nil(b, err)
@@ -634,14 +640,22 @@ func BenchmarkSendWithStreamNonReusable(b *testing.B) {
 	})
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
-		s, err := p1.GetStream(p2.PeerID())
-		assert.Nil(b, err)
-		defer p1.ReleaseStream(s)
+		s, err = p1.GetStream(p2.PeerID())
+		if err != nil {
+			break
+		}
 		err = s.AsyncSend(msg)
-		assert.Nil(b, err)
-		rawMsg, err := s.Read(2 * time.Second)
-		assert.Nil(b, err)
+		if err != nil {
+			break
+		}
+		rawMsg, err = s.Read(2 * time.Second)
+		if err != nil {
+			break
+		}
 		assert.Equal(b, ack, rawMsg)
 	}
+	p1.ReleaseStream(s)
+	assert.Nil(b, err)
 }

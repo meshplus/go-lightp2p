@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p"
+	p2p "github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -15,7 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/routing"
-	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
@@ -27,14 +26,6 @@ import (
 const module = "lightp2p"
 
 var _ Network = (*P2P)(nil)
-
-var (
-	connectTimeout           = 10 * time.Second
-	sendTimeout              = 2 * time.Second
-	waitTimeout              = 2 * time.Second
-	reusableProtocolIndex    = 0
-	nonReusableProtocolIndex = 1
-)
 
 type P2P struct {
 	config          *Config
@@ -57,21 +48,21 @@ func New(options ...Option) (*P2P, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	opts := []libp2p.Option{
-		libp2p.Identity(conf.privKey),
-		libp2p.ListenAddrStrings(conf.localAddr),
-		libp2p.ConnectionGater(conf.gater),
+	opts := []p2p.Option{
+		p2p.Identity(conf.privKey),
+		p2p.ListenAddrStrings(conf.localAddr),
+		p2p.ConnectionGater(conf.gater),
 	}
 
 	if conf.transportID != "" && conf.transport != nil {
-		opts = append(opts, libp2p.Security(conf.transportID, conf.transport))
+		opts = append(opts, p2p.Security(conf.transportID, conf.transport))
 	}
 
 	if conf.connMgr != nil && conf.connMgr.enabled {
-		opts = append(opts, libp2p.ConnectionManager(newConnManager(conf.connMgr)))
+		opts = append(opts, p2p.ConnectionManager(newConnManager(conf.connMgr)))
 	}
 
-	h, err := libp2p.New(ctx, opts...)
+	h, err := p2p.New(ctx, opts...)
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create p2p host")
@@ -83,18 +74,20 @@ func New(options ...Option) (*P2P, error) {
 	for i, pAddr := range conf.bootstrap {
 		addr, err := ma.NewMultiaddr(pAddr)
 		if err != nil {
+			cancel()
 			return nil, errors.Wrapf(err, "failed on create new multi addr %d", i)
 		}
 
 		addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
 		if err != nil {
+			cancel()
 			return nil, errors.Wrapf(err, "failed on get addr info from multi addr %d", i)
 		}
 
 		addrInfos = append(addrInfos, *addrInfo)
 	}
 
-	routing, err := ddht.New(ctx, h, dht.BootstrapPeers(addrInfos...))
+	r, err := ddht.New(ctx, h, dht.BootstrapPeers(addrInfos...))
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create dht")
@@ -104,18 +97,16 @@ func New(options ...Option) (*P2P, error) {
 		h.Network().Notify(conf.notify)
 	}
 
-	p2p := &P2P{
+	return &P2P{
 		config:     conf,
 		host:       h,
-		streamMng:  newStreamMng(ctx, h, conf.protocolIDs[reusableProtocolIndex], conf.logger),
+		streamMng:  newStreamMng(ctx, h, conf.protocolIDs[conf.reusableProtocolIndex], conf.logger, conf.timeout),
 		logger:     conf.logger,
-		Routing:    routing,
+		Routing:    r,
 		pingServer: pingServer,
 		ctx:        ctx,
 		cancel:     cancel,
-	}
-
-	return p2p, nil
+	}, nil
 }
 
 func newConnManager(cfg *connMgr) *connmgr.BasicConnMgr {
@@ -136,11 +127,11 @@ func (p2p *P2P) Ping(ctx context.Context, peerID string) (<-chan ping.Result, er
 	return ch, nil
 }
 
-// Start start the network service.
+// Start it start the network service.
 func (p2p *P2P) Start() error {
-	p2p.host.SetStreamHandler(p2p.config.protocolIDs[reusableProtocolIndex], p2p.handleNewStreamReusable)
+	p2p.host.SetStreamHandler(p2p.config.protocolIDs[p2p.config.reusableProtocolIndex], p2p.handleNewStreamReusable)
 	if len(p2p.config.protocolIDs) > 1 {
-		p2p.host.SetStreamHandler(p2p.config.protocolIDs[nonReusableProtocolIndex], p2p.handleNewStream)
+		p2p.host.SetStreamHandler(p2p.config.protocolIDs[p2p.config.nonReusableProtocolIndex], p2p.handleNewStream)
 	}
 	//construct Bootstrap node's peer info
 	var peers []peer.AddrInfo
@@ -167,8 +158,8 @@ func (p2p *P2P) Start() error {
 	return nil
 }
 
-//// BootstrapConnect refer to ipfs bootstrap
-//// connect to bootstrap peers concurrently
+// BootstrapConnect refer to ipfs bootstrap
+// connect to bootstrap peers concurrently
 func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer.AddrInfo) error {
 	if len(peers) < 1 {
 		return errors.New("not enough bootstrap peers")
@@ -196,7 +187,12 @@ func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer
 			}
 			fmt.Printf("bootstrapDialSuccess with %s", p.ID.Pretty())
 			if p2p.connectCallback != nil {
-				p2p.connectCallback(p.ID.String())
+				err := p2p.connectCallback(p.ID.String())
+				if err != nil {
+					fmt.Printf("failed to connect callback with %v: %s", p.ID, err)
+					errs <- err
+					return
+				}
 			}
 		}(p)
 	}
@@ -221,7 +217,7 @@ func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer
 
 // Connect peer.
 func (p2p *P2P) Connect(addr peer.AddrInfo) error {
-	ctx, cancel := context.WithTimeout(p2p.ctx, connectTimeout)
+	ctx, cancel := context.WithTimeout(p2p.ctx, p2p.config.timeout.connectTimeout)
 	defer cancel()
 
 	if err := p2p.host.Connect(ctx, addr); err != nil {
@@ -283,7 +279,7 @@ func (p2p *P2P) Send(peerID string, msg []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
-	recvMsg, err := waitMsg(s.stream, waitTimeout)
+	recvMsg, err := waitMsg(s.stream, s.timeout.waitTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +301,7 @@ func (p2p *P2P) Broadcast(ids []string, msg []byte) error {
 	return nil
 }
 
-// Stop stop the network service.
+// Stop it stop the network service.
 func (p2p *P2P) Stop() error {
 	p2p.streamMng.stop()
 	p2p.cancel()
@@ -314,13 +310,13 @@ func (p2p *P2P) Stop() error {
 
 // AddrToPeerInfo transfer addr to PeerInfo
 // addr example: "/ip4/104.236.76.40/tcp/4001/ipfs/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64"
-func AddrToPeerInfo(multiAddr string) (*peer.AddrInfo, error) {
-	maddr, err := ma.NewMultiaddr(multiAddr)
+func AddrToPeerInfo(addr string) (*peer.AddrInfo, error) {
+	multiAddr, err := ma.NewMultiaddr(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	return peer.AddrInfoFromP2pAddr(maddr)
+	return peer.AddrInfoFromP2pAddr(multiAddr)
 }
 
 func (p2p *P2P) Disconnect(peerID string) error {
@@ -336,7 +332,7 @@ func (p2p *P2P) PeerID() string {
 	return p2p.host.ID().String()
 }
 
-func (p2p *P2P) PrivKey() crypto.PrivKey {
+func (p2p *P2P) PrivKey() crypto2.PrivKey {
 	return p2p.config.privKey
 }
 
@@ -366,12 +362,12 @@ func (p2p *P2P) GetStream(peerID string) (Stream, error) {
 		return nil, errors.Wrap(err, "failed on decode peer id")
 	}
 
-	s, err := p2p.host.NewStream(p2p.ctx, pid, p2p.config.protocolIDs[nonReusableProtocolIndex])
+	s, err := p2p.host.NewStream(p2p.ctx, pid, p2p.config.protocolIDs[p2p.config.nonReusableProtocolIndex])
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on create new stream")
 	}
 
-	return newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex], DirOutbound), nil
+	return newStream(s, p2p.config.protocolIDs[p2p.config.nonReusableProtocolIndex], DirOutbound, p2p.config.timeout), nil
 }
 
 func (p2p *P2P) ReleaseStream(s Stream) {
@@ -381,12 +377,16 @@ func (p2p *P2P) ReleaseStream(s Stream) {
 		return
 	}
 
-	if stream.getProtocolID() == p2p.config.protocolIDs[nonReusableProtocolIndex] {
-		stream.close()
+	if stream.getProtocolID() == p2p.config.protocolIDs[p2p.config.nonReusableProtocolIndex] {
+		err := stream.close()
+		if err != nil {
+			p2p.logger.Error("stream close error")
+			return
+		}
 		return
 	}
 
-	if stream.getProtocolID() == p2p.config.protocolIDs[reusableProtocolIndex] {
+	if stream.getProtocolID() == p2p.config.protocolIDs[p2p.config.reusableProtocolIndex] {
 		if stream.getDirection() == DirOutbound {
 			if stream.isValid() {
 				p2p.streamMng.release(stream)
@@ -432,7 +432,8 @@ func (p2p *P2P) FindPeer(peerID string) (peer.AddrInfo, error) {
 	if err != nil {
 		return peer.AddrInfo{}, fmt.Errorf("failed on decode peer id:%v", err)
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
 	return p2p.Routing.FindPeer(ctx, id)
 }
 

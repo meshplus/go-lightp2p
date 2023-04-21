@@ -6,15 +6,14 @@ import (
 	"io"
 	"time"
 
-	ggio "github.com/gogo/protobuf/io"
+	gogoIo "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
+	networkPb "github.com/meshplus/go-lightp2p/pb"
 	"github.com/pkg/errors"
-
-	network_pb "github.com/meshplus/go-lightp2p/pb"
 )
 
-func (p2p *P2P) handleMessage(s *stream, reader ggio.ReadCloser) error {
-	msg := &network_pb.Message{}
+func (p2p *P2P) handleMessage(s *stream, reader gogoIo.ReadCloser) error {
+	msg := &networkPb.Message{}
 	if err := reader.ReadMsg(msg); err != nil {
 		if err != io.EOF {
 			if err := s.reset(); err != nil {
@@ -41,10 +40,10 @@ func (p2p *P2P) handleNewStreamReusable(s network.Stream) {
 		return
 	}
 
-	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
+	reader := gogoIo.NewDelimitedReader(s, network.MessageSizeMax)
 	for {
-		stream := newStream(s, p2p.config.protocolIDs[reusableProtocolIndex], DirInbound)
-		msg := &network_pb.Message{}
+		stream := newStream(s, p2p.config.protocolIDs[p2p.config.reusableProtocolIndex], DirInbound, p2p.config.timeout)
+		msg := &networkPb.Message{}
 		if err := reader.ReadMsg(msg); err != nil {
 			if err != io.EOF {
 				if err := stream.reset(); err != nil {
@@ -68,17 +67,20 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 		return
 	}
 
-	reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
-
-	p2p.handleMessage(newStream(s, p2p.config.protocolIDs[nonReusableProtocolIndex], DirInbound), reader)
+	reader := gogoIo.NewDelimitedReader(s, network.MessageSizeMax)
+	err := p2p.handleMessage(newStream(s, p2p.config.protocolIDs[p2p.config.nonReusableProtocolIndex], DirInbound, p2p.config.timeout), reader)
+	if err != nil {
+		p2p.logger.WithField("error", err).Error("Stream handle message error")
+		return
+	}
 }
 
 // waitMsg wait the incoming messages within time duration.
-func waitMsg(stream io.Reader, timeout time.Duration) (*network_pb.Message, error) {
-	reader := ggio.NewDelimitedReader(stream, network.MessageSizeMax)
+func waitMsg(stream io.Reader, timeout time.Duration) (*networkPb.Message, error) {
+	reader := gogoIo.NewDelimitedReader(stream, network.MessageSizeMax)
 
 	ch := make(chan error)
-	msg := &network_pb.Message{}
+	msg := &networkPb.Message{}
 	go func() {
 		if err := reader.ReadMsg(msg); err != nil {
 			ch <- err
@@ -100,15 +102,15 @@ func waitMsg(stream io.Reader, timeout time.Duration) (*network_pb.Message, erro
 }
 
 func (p2p *P2P) send(s *stream, msg []byte) error {
-	deadline := time.Now().Add(sendTimeout)
+	deadline := time.Now().Add(p2p.config.timeout.sendTimeout)
 
 	if err := s.getStream().SetWriteDeadline(deadline); err != nil {
 		return fmt.Errorf("set deadline: %w", err)
 	}
 
-	writer := ggio.NewDelimitedWriter(s.getStream())
+	writer := gogoIo.NewDelimitedWriter(s.getStream())
 
-	if err := writer.WriteMsg(&network_pb.Message{Data: msg}); err != nil {
+	if err := writer.WriteMsg(&networkPb.Message{Data: msg}); err != nil {
 		return fmt.Errorf("write msg: %w", err)
 	}
 

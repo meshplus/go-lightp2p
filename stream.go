@@ -6,10 +6,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	ggio "github.com/gogo/protobuf/io"
+	gogoIo "github.com/gogo/protobuf/io"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	network_pb "github.com/meshplus/go-lightp2p/pb"
+	networkPb "github.com/meshplus/go-lightp2p/pb"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -27,14 +27,16 @@ type stream struct {
 	stream    network.Stream
 	pid       protocol.ID
 	valid     bool
+	timeout   *timeout
 }
 
-func newStream(s network.Stream, pid protocol.ID, dir Direction) *stream {
+func newStream(s network.Stream, pid protocol.ID, dir Direction, timeout *timeout) *stream {
 	return &stream{
 		direction: dir,
 		stream:    s,
 		pid:       pid,
 		valid:     true,
+		timeout:   timeout,
 	}
 }
 
@@ -71,16 +73,16 @@ func (s *stream) RemotePeerAddr() ma.Multiaddr {
 }
 
 func (s *stream) AsyncSend(msg []byte) error {
-	deadline := time.Now().Add(sendTimeout)
+	deadline := time.Now().Add(s.timeout.sendTimeout)
 
 	if err := s.getStream().SetWriteDeadline(deadline); err != nil {
 		s.valid = false
 		return fmt.Errorf("set deadline: %w", err)
 	}
 
-	writer := ggio.NewDelimitedWriter(s.getStream())
+	writer := gogoIo.NewDelimitedWriter(s.getStream())
 
-	if err := writer.WriteMsg(&network_pb.Message{Data: msg}); err != nil {
+	if err := writer.WriteMsg(&networkPb.Message{Data: msg}); err != nil {
 		s.valid = false
 		return fmt.Errorf("write msg: %w", err)
 	}
@@ -93,7 +95,7 @@ func (s *stream) Send(msg []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed on send msg")
 	}
 
-	recvMsg, err := waitMsg(s.getStream(), waitTimeout)
+	recvMsg, err := waitMsg(s.getStream(), s.timeout.waitTimeout)
 	if err != nil {
 		s.valid = false
 		return nil, err
