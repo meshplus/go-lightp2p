@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/connmgr"
@@ -112,11 +113,11 @@ func WithConnectionGater(gater connmgr.ConnectionGater) Option {
 }
 
 // WithConnMgr * enable is the enable signal of the connection manager module.
-// * lo and hi are watermarks governing the number of connections that'll be maintained.
-//   When the peer count exceeds the 'high watermark', as many peers will be pruned (and
-//   their connections terminated) until 'low watermark' peers remain.
-// * grace is the amount of time a newly opened connection is given before it becomes
-//   subject to pruning.
+//   - lo and hi are watermarks governing the number of connections that'll be maintained.
+//     When the peer count exceeds the 'high watermark', as many peers will be pruned (and
+//     their connections terminated) until 'low watermark' peers remain.
+//   - grace is the amount of time a newly opened connection is given before it becomes
+//     subject to pruning.
 func WithConnMgr(enable bool, lo int, hi int, grace time.Duration) Option {
 	return func(config *Config) {
 		config.connMgr = &connMgr{
@@ -164,7 +165,7 @@ func WithNonReusableProtocolIndex(nonReusableProtocolIndex int) Option {
 }
 
 func checkConfig(config *Config) error {
-	if config.logger == logrus.FieldLogger(nil) {
+	if reflect.ValueOf(config.logger).IsZero() {
 		config.logger = log.NewWithModule("p2p")
 	}
 
@@ -172,6 +173,15 @@ func checkConfig(config *Config) error {
 		return fmt.Errorf("empty local address")
 	}
 
+	if config.timeout.sendTimeout < 0 {
+		config.timeout.sendTimeout = defaultSendTimeout
+	}
+	if config.timeout.waitTimeout < 0 {
+		config.timeout.waitTimeout = defaultWaitTimeout
+	}
+	if config.timeout.connectTimeout < 0 {
+		config.timeout.connectTimeout = defaultConnectTimeout
+	}
 	return nil
 }
 
