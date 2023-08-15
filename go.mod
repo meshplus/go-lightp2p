@@ -9,7 +9,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.19.1
 	github.com/libp2p/go-libp2p-kad-dht v0.17.0
 	github.com/meshplus/bitxhub-kit v1.1.1
-	github.com/meshplus/go-libp2p-cert v0.0.0-20230815084600-657ba0172e94
+	github.com/meshplus/go-libp2p-cert v0.0.0-20230815115417-14302c821f5e
 	github.com/multiformats/go-multiaddr v0.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
