@@ -8,7 +8,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-connmgr"
 	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -18,6 +17,7 @@ import (
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -67,10 +67,14 @@ func New(options ...Option) (*P2P, error) {
 	}
 
 	if conf.connMgr != nil && conf.connMgr.enabled {
-		opts = append(opts, libp2p.ConnectionManager(newConnManager(conf.connMgr)))
+		ins := newConnManager(conf.connMgr, conf.logger)
+		if ins == nil {
+			return nil, errors.New("create ConnManager error")
+		}
+		opts = append(opts, libp2p.ConnectionManager(ins))
 	}
 
-	h, err := libp2p.New(ctx, opts...)
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create p2p host")
@@ -117,12 +121,17 @@ func New(options ...Option) (*P2P, error) {
 	return p2p, nil
 }
 
-func newConnManager(cfg *connMgr) *connmgr.BasicConnMgr {
+func newConnManager(cfg *connMgr, log logrus.FieldLogger) *connmgr.BasicConnMgr {
 	if cfg == nil || !cfg.enabled {
 		return nil
 	}
 
-	return connmgr.NewConnManager(cfg.lo, cfg.hi, cfg.grace)
+	baiscConnMgr, err := connmgr.NewConnManager(cfg.lo, cfg.hi, connmgr.WithGracePeriod(cfg.grace))
+	if err != nil {
+		log.Error("create connManager error: %s", err.Error())
+		return nil
+	}
+	return baiscConnMgr
 }
 
 func (p2p *P2P) Ping(ctx context.Context, peerID string) (<-chan ping.Result, error) {
