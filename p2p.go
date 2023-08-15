@@ -8,13 +8,13 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
+	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/routing"
-	crypto "github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
@@ -69,6 +69,7 @@ func New(options ...Option) (*P2P, error) {
 	if conf.connMgr != nil && conf.connMgr.enabled {
 		ins := newConnManager(conf.connMgr, conf.logger)
 		if ins == nil {
+			cancel()
 			return nil, errors.New("create ConnManager error")
 		}
 		opts = append(opts, libp2p.ConnectionManager(ins))
@@ -86,18 +87,20 @@ func New(options ...Option) (*P2P, error) {
 	for i, pAddr := range conf.bootstrap {
 		addr, err := ma.NewMultiaddr(pAddr)
 		if err != nil {
+			cancel()
 			return nil, errors.Wrapf(err, "failed on create new multi addr %d", i)
 		}
 
 		addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
 		if err != nil {
+			cancel()
 			return nil, errors.Wrapf(err, "failed on get addr info from multi addr %d", i)
 		}
 
 		addrInfos = append(addrInfos, *addrInfo)
 	}
 
-	routing, err := ddht.New(ctx, h, dht.BootstrapPeers(addrInfos...))
+	routing, err := ddht.New(ctx, h, ddht.DHTOption(dht.BootstrapPeers(addrInfos...)))
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed on create dht")
