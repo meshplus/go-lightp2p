@@ -7,7 +7,7 @@ import (
 	"time"
 
 	ggio "github.com/gogo/protobuf/io"
-	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/pkg/errors"
 
 	network_pb "github.com/meshplus/go-lightp2p/pb"

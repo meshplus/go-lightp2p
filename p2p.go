@@ -8,15 +8,14 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
-	crypto2 "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/peerstore"
-	"github.com/libp2p/go-libp2p-core/routing"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ddht "github.com/libp2p/go-libp2p-kad-dht/dual"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	ma "github.com/multiformats/go-multiaddr"
@@ -178,8 +177,8 @@ func (p2p *P2P) Start() error {
 	return nil
 }
 
-//// BootstrapConnect refer to ipfs bootstrap
-//// connect to bootstrap peers concurrently
+// // BootstrapConnect refer to ipfs bootstrap
+// // connect to bootstrap peers concurrently
 func (p2p *P2P) BootstrapConnect(ctx context.Context, ph host.Host, peers []peer.AddrInfo) error {
 	if len(peers) < 1 {
 		return errors.New("not enough bootstrap peers")
@@ -421,7 +420,7 @@ func (p2p *P2P) PeerInfo(peerID string) (peer.AddrInfo, error) {
 	return p2p.host.Peerstore().PeerInfo(pid), nil
 }
 
-func (p2p *P2P) GetRemotePubKey(id peer.ID) (crypto2.PubKey, error) {
+func (p2p *P2P) GetRemotePubKey(id peer.ID) (crypto.PubKey, error) {
 	conns := p2p.host.Network().ConnsToPeer(id)
 
 	for _, conn := range conns {
