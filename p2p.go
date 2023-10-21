@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p/core/sec"
 	"sync"
 	"time"
 
@@ -62,7 +63,7 @@ func New(options ...Option) (*P2P, error) {
 	}
 
 	if conf.transportID != "" && conf.transport != nil {
-		opts = append(opts, libp2p.Security(conf.transportID, conf.transport))
+		opts = append(opts, libp2p.Security(conf.transportID, func() sec.SecureTransport { return conf.transport }))
 	}
 
 	if conf.connMgr != nil && conf.connMgr.enabled {
